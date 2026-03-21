@@ -1,11 +1,10 @@
-// updated 3.20.25 @ 7:30PM
-// ui.js 
-
+// UI.JS
+// UPDATED: 3/21/26 @ 6pm
 
 // ── SLIDER PARAM DEFINITIONS ─────────────────────────────────────────────────
 const PARAMS = [
   // STRUCTURE
-  { key: 'TENTACLE_COUNT',              label: 'Tentacle QTY',           min: 1,    max: 8,    step: 1,    rebuild: true },
+  { key: 'TENTACLE_COUNT',              label: 'Tentacle QTY',    min: 1,    max: 8,    step: 1,    rebuild: true },
   { key: 'TENTACLE_SEGMENTS',           label: 'Segments',        min: 2,    max: 14,   step: 1,    rebuild: true },
   { key: 'TENTACLE_SEGMENT_LENGTH',     label: 'Seg Length',      min: 3,    max: 70,   step: 0.5,  live: 'segLen' },
   { key: 'TENTACLE_BASE_WIDTH',         label: 'Base Width',      min: 2,    max: 50,   step: 0.5,  live: 'baseWidth' },
@@ -39,17 +38,7 @@ const SECTION_BEFORE = {
 };
 
 export class TentacleLabUI {
-  /**
-   * @param {object} opts
-   * @param {HTMLCanvasElement} opts.canvas
-   * @param {object}            opts.cfg       
-   * @param {object}            opts.defaults  
-   * @param {{ current: import('./tentacles.js').TentacleSystem }} opts.systemRef
-   * @param {() => void}        opts.onRebuild 
-   * @param {(img: HTMLImageElement) => void} opts.onHeadLoad
-   * @param {import('./audio.js').AudioSystem} opts.audio
-   */
-  constructor({ canvas, cfg, defaults, systemRef, onRebuild, onHeadLoad, audio }) {
+  constructor({ canvas, cfg, defaults, systemRef, onRebuild, onHeadLoad, audio, onRelease }) {
     this._canvas     = canvas;
     this._cfg        = cfg;
     this._defaults   = defaults;
@@ -57,33 +46,32 @@ export class TentacleLabUI {
     this._onRebuild  = onRebuild;
     this._onHeadLoad = onHeadLoad;
     this._audio      = audio;
+    this._onRelease  = onRelease;  // V2: release current config into aquarium
 
     this._panel   = null;
+    this._leftPanel = null;
     this._toast   = null;
-    this._sliders = {};   // KEY → { input, valueEl, param }
+    this._sliders = {};
+    this._colorPickers = {};
+
+    // EXPOSED SO MAIN.JS CAN CALL AFTER MODE SWITCH
+    this._updateToggleButtons = null;
   }
 
-  build() {
-    this._buildPanel();
-  }
+  build() { this._buildPanel(); }
+  destroy() { this._panel?.remove(); this._toast?.remove(); }
 
-  destroy() {
-    this._panel?.remove();
-    this._toast?.remove();
-  }
-
-  _injectStyles() {
-    // NO -OP: STYLES ARE NOW IN js/assets/css/styles.css
-  }
+  _injectStyles() { /* styles in assets/css/styles.css */ }
 
   _buildPanel() {
+    // ── LEFT PANEL ────────────────────────────────────────────────────────
     let leftPanel = document.getElementById('tlab-left-panel');
     if (!leftPanel) {
       leftPanel = document.createElement('div');
       leftPanel.id = 'tlab-left-panel';
       leftPanel.innerHTML = `
         <div id="tlab-left-header">
-          <button id="tlab-toggle-right" title="Toggle right panel">»</button>
+          <button id="tlab-toggle-right" title="Toggle panel">»</button>
         </div>
         <div id="tlab-left-content">
           <div id="tlab-audio-row">
@@ -93,10 +81,11 @@ export class TentacleLabUI {
           </div>
           <div id="tlab-colors"></div>
           <div id="tlab-buttons">
-            <button class="tlab-btn rand" id="tlab-rand-btn">Surprise Config!</button>
-            <button class="tlab-btn copy" id="tlab-copy-btn">Copy Config</button>
-            <button class="tlab-btn" id="tlab-reset-btn">Reset</button>
-            <button class="tlab-btn load" id="tlab-load-btn">Load New Head</button>
+            <button class="tlab-btn release" id="tlab-release-btn">🌊 Release to Aquarium</button>
+            <button class="tlab-btn rand"    id="tlab-rand-btn">Surprise Config!</button>
+            <button class="tlab-btn copy"    id="tlab-copy-btn">Copy Config</button>
+            <button class="tlab-btn"         id="tlab-reset-btn">Reset</button>
+            <button class="tlab-btn load"    id="tlab-load-btn">Load New Head</button>
           </div>
         </div>
         <input type="file" id="tlab-file-input" accept="image/*">
@@ -104,6 +93,7 @@ export class TentacleLabUI {
       document.body.appendChild(leftPanel);
     }
 
+    // ── RIGHT PANEL ───────────────────────────────────────────────────────
     let panel = document.getElementById('tlab-panel');
     if (!panel) {
       panel = document.createElement('div');
@@ -118,7 +108,7 @@ export class TentacleLabUI {
       document.body.appendChild(panel);
     }
 
-    this._panel = panel;
+    this._panel     = panel;
     this._leftPanel = leftPanel;
 
     let toast = document.getElementById('tlab-toast');
@@ -129,17 +119,13 @@ export class TentacleLabUI {
     }
     this._toast = toast;
 
-    const initialVolSlider = leftPanel.querySelector('#tlab-vol-slider');
-    if (initialVolSlider) {
-      initialVolSlider.value = String(this._audio._volume ?? 0.5);
-    }
+    const volSlider = leftPanel.querySelector('#tlab-vol-slider');
+    if (volSlider) volSlider.value = String(this._audio._volume ?? 0.5);
 
     this._buildSliders();
 
     // ── AUDIO CONTROLS ────────────────────────────────────────────────────
     const muteBtn = leftPanel.querySelector('#tlab-mute-btn');
-    const volSlider = leftPanel.querySelector('#tlab-vol-slider');
-
     muteBtn.addEventListener('click', () => {
       this._audio.ensureInit();
       const nowMuted = !this._audio.muted;
@@ -147,20 +133,20 @@ export class TentacleLabUI {
       muteBtn.classList.toggle('muted', nowMuted);
     });
 
-    volSlider.addEventListener('input', () => {
+    leftPanel.querySelector('#tlab-vol-slider').addEventListener('input', e => {
       this._audio.ensureInit();
-      this._audio.setVolume(parseFloat(volSlider.value));
+      this._audio.setVolume(parseFloat(e.target.value));
     });
 
     // ── ACTION BUTTONS ────────────────────────────────────────────────────
-    leftPanel.querySelector('#tlab-rand-btn').addEventListener('click', () => {
-      this._randomize();
+    leftPanel.querySelector('#tlab-release-btn').addEventListener('click', () => {
+      this._audio.ensureInit();
+      this._audio.playSquish(performance.now() - 9999);
+      this._onRelease?.();
     });
 
-    leftPanel.querySelector('#tlab-copy-btn').addEventListener('click', () => {
-      this._copyConfig();
-    });
-
+    leftPanel.querySelector('#tlab-rand-btn').addEventListener('click', () => this._randomize());
+    leftPanel.querySelector('#tlab-copy-btn').addEventListener('click', () => this._copyConfig());
     leftPanel.querySelector('#tlab-reset-btn').addEventListener('click', () => {
       this._resetDefaults();
       this._showToast('↩ Reset to defaults');
@@ -168,9 +154,7 @@ export class TentacleLabUI {
 
     // ── LOAD HEAD ─────────────────────────────────────────────────────────
     const fileInput = leftPanel.querySelector('#tlab-file-input');
-    leftPanel.querySelector('#tlab-load-btn').addEventListener('click', () => {
-      fileInput.click();
-    });
+    leftPanel.querySelector('#tlab-load-btn').addEventListener('click', () => fileInput.click());
     fileInput.addEventListener('change', () => {
       const file = fileInput.files?.[0];
       if (!file) return;
@@ -181,13 +165,12 @@ export class TentacleLabUI {
       img.src = url;
     });
 
-    // ── TOGGLE BUTTONS ────────────────────────────────────────────────────
-    // External small handles, outside of panel so hidden panels can be reopened.
+    // ── PANEL TOGGLE BUTTONS ──────────────────────────────────────────────
     let openLeftBtn = document.getElementById('tlab-open-left');
     if (!openLeftBtn) {
       openLeftBtn = document.createElement('button');
-      openLeftBtn.id = 'tlab-open-left';
-      openLeftBtn.title = 'Show left panel';
+      openLeftBtn.id          = 'tlab-open-left';
+      openLeftBtn.title       = 'Show left panel';
       openLeftBtn.textContent = '»';
       document.body.appendChild(openLeftBtn);
     }
@@ -195,16 +178,18 @@ export class TentacleLabUI {
     let openRightBtn = document.getElementById('tlab-open-right');
     if (!openRightBtn) {
       openRightBtn = document.createElement('button');
-      openRightBtn.id = 'tlab-open-right';
-      openRightBtn.title = 'Show right panel';
+      openRightBtn.id          = 'tlab-open-right';
+      openRightBtn.title       = 'Show right panel';
       openRightBtn.textContent = '«';
       document.body.appendChild(openRightBtn);
     }
 
     const updateToggleButtons = () => {
-      openLeftBtn.style.display = leftPanel.classList.contains('hidden') ? 'block' : 'none';
-      openRightBtn.style.display = panel.classList.contains('hidden') ? 'block' : 'none';
+      openLeftBtn.style.display  = leftPanel.classList.contains('hidden') ? 'block' : 'none';
+      openRightBtn.style.display = panel.classList.contains('hidden')     ? 'block' : 'none';
     };
+    // EXPOSE FOR MAIN.JS TO CALL AFTER MODE SWITCH
+    this._updateToggleButtons = updateToggleButtons;
 
     leftPanel.querySelector('#tlab-toggle-right').addEventListener('click', () => {
       leftPanel.classList.toggle('hidden');
@@ -216,30 +201,22 @@ export class TentacleLabUI {
       updateToggleButtons();
     });
 
-    openLeftBtn.addEventListener('click', () => {
-      leftPanel.classList.remove('hidden');
-      updateToggleButtons();
-    });
-
-    openRightBtn.addEventListener('click', () => {
-      panel.classList.remove('hidden');
-      updateToggleButtons();
-    });
+    openLeftBtn.addEventListener('click',  () => { leftPanel.classList.remove('hidden'); updateToggleButtons(); });
+    openRightBtn.addEventListener('click', () => { panel.classList.remove('hidden');     updateToggleButtons(); });
 
     updateToggleButtons();
   }
 
   // ── SLIDERS ───────────────────────────────────────────────────────────────
   _buildSliders() {
-    const container = this._panel.querySelector('#tlab-sliders');
-    container.innerHTML = '';
-    this._sliders = {};
+    const container      = this._panel.querySelector('#tlab-sliders');
+    container.innerHTML  = '';
+    this._sliders        = {};
 
-    const colorsContainer = this._leftPanel.querySelector('#tlab-colors');
+    const colorsContainer    = this._leftPanel.querySelector('#tlab-colors');
     colorsContainer.innerHTML = '';
 
     for (const param of PARAMS) {
-      // Section dividers
       if (SECTION_BEFORE[param.key]) {
         const sec = document.createElement('div');
         sec.className   = 'tlab-section';
@@ -247,7 +224,6 @@ export class TentacleLabUI {
         container.appendChild(sec);
       }
 
-      // Color pickers right after the VISUAL section header
       if (param.key === 'SIZE') {
         this._buildColorRow(colorsContainer, 'Spline Color', 'SPLINE_COLOR');
         this._buildColorRow(colorsContainer, 'Glow Color',   'GLOW_COLOR');
@@ -286,12 +262,8 @@ export class TentacleLabUI {
     container.appendChild(row);
 
     const picker = row.querySelector('input');
-    picker.addEventListener('input', () => {
-      this._cfg[cfgKey] = picker.value;
-      // LIVE - TentacleSyste.draw() READS FROM CFG EACH FRAME- NO REBUILD NEEDED
-    });
+    picker.addEventListener('input', () => { this._cfg[cfgKey] = picker.value; });
 
-    // STORE REFERENCES FOR SYNC DURING RESET  RANDOMIZE 
     if (!this._colorPickers) this._colorPickers = {};
     this._colorPickers[cfgKey] = picker;
   }
@@ -304,7 +276,6 @@ export class TentacleLabUI {
       input.value = v;
       valueEl.textContent = this._fmt(v, param);
     }
-    // SYNC COLOR PICKERS
     if (this._colorPickers) {
       for (const [key, picker] of Object.entries(this._colorPickers)) {
         picker.value = this._cfg[key];
@@ -323,7 +294,6 @@ export class TentacleLabUI {
     const cfg    = this._cfg;
     const system = this._systemRef.current;
 
-    // ── MAX BEND —SLIDER IN DEGREES - CONFIG IN RADIANS  ──────────────────
     if (param.special === 'maxBend') {
       const rad = value * (Math.PI / 180);
       cfg.TENTACLE_MAX_BEND = rad;
@@ -331,7 +301,6 @@ export class TentacleLabUI {
       return;
     }
 
-    // ── TIP BIAS — FANS  PER TENTACLES  ───────────────────────────────
     if (param.special === 'tipBias') {
       cfg.TENTACLE_TIP_BIAS = value;
       if (system) {
@@ -345,49 +314,32 @@ export class TentacleLabUI {
       return;
     }
 
-    // WRITE TO CONFIG
     cfg[param.key] = value;
-
-    // Structural change — full rebuild required (Float32Arrays reallocated)
-    if (param.rebuild) {
-      this._onRebuild();
-      return;
-    }
-
-    // Visual only — no tentacle hot-patch needed (draw() reads cfg directly)
-    if (param.visual) return;
-
-    // Scalar live patch — hot-update running tentacle instances
-    if (param.live && system) {
-      for (const t of system.tentacles) t[param.live] = value;
-    }
+    if (param.rebuild) { this._onRebuild(); return; }
+    if (param.visual)  return;
+    if (param.live && system) for (const t of system.tentacles) t[param.live] = value;
   }
 
   // ── RANDOMIZE ─────────────────────────────────────────────────────────────
   _randomize() {
     this._audio.ensureInit();
-    this._audio.playSquish(performance.now() - 9999); // force past throttle
+    this._audio.playSquish(performance.now() - 9999);
 
     for (const param of PARAMS) {
-      // Keep structural params reasonable so it doesn't look broken
-      const min = param.key === 'TENTACLE_COUNT'    ? 1
-                : param.key === 'TENTACLE_SEGMENTS'  ? 3
+      const min = param.key === 'TENTACLE_COUNT'   ? 1
+                : param.key === 'TENTACLE_SEGMENTS' ? 3
                 : param.min;
-      const max = param.key === 'TENTACLE_COUNT'    ? 6
-                : param.key === 'TENTACLE_SEGMENTS'  ? 10
+      const max = param.key === 'TENTACLE_COUNT'   ? 6
+                : param.key === 'TENTACLE_SEGMENTS' ? 10
                 : param.max;
 
       let v = min + Math.random() * (max - min);
-      // Snap to step
       v = Math.round(v / param.step) * param.step;
       v = Math.max(param.min, Math.min(param.max, v));
 
-      this._cfg[param.key] = param.special === 'maxBend'
-        ? (v * Math.PI / 180)
-        : v;
+      this._cfg[param.key] = param.special === 'maxBend' ? (v * Math.PI / 180) : v;
     }
 
-    // Random neon colors
     const hue1 = Math.floor(Math.random() * 360);
     const hue2 = (hue1 + 30 + Math.floor(Math.random() * 60)) % 360;
     this._cfg.SPLINE_COLOR = `hsl(${hue1}, 90%, 55%)`;
@@ -411,7 +363,6 @@ export class TentacleLabUI {
     const lines = PARAMS.map(p => {
       const val = cfg[p.key];
       if (val === undefined) return null;
-
       let valStr;
       if (p.special === 'maxBend') {
         valStr = this._nicePI(val / Math.PI);
@@ -436,10 +387,7 @@ export class TentacleLabUI {
 
     navigator.clipboard.writeText(out)
       .then(() => this._showToast('✔ Config copied to clipboard!'))
-      .catch(() => {
-        console.log('[TentacleLab] Config:\n', out);
-        this._showToast('✔ Config logged to console');
-      });
+      .catch(() => { console.log('[TentacleLab] Config:\n', out); this._showToast('✔ Logged to console'); });
   }
 
   // ── TOAST ─────────────────────────────────────────────────────────────────
@@ -450,7 +398,6 @@ export class TentacleLabUI {
     setTimeout(() => this._toast?.classList.remove('show'), 2000);
   }
 
-  // CONVERT A PI FRACTION TO A READABLE EXPRESSION
   _nicePI(f) {
     const twelfths = Math.round(f * 12);
     const map = { 12: 'Math.PI', 6: 'Math.PI / 2', 4: 'Math.PI / 3', 3: 'Math.PI / 4', 2: 'Math.PI / 6', 1: 'Math.PI / 12' };

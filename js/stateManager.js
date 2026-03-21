@@ -3,7 +3,7 @@
 
 export class StateManager {
   constructor() {
-    this.mode      = 'LAB';   // current active mode
+    this.mode      = 'LAB'; 
     this._listeners = [];
   }
 
