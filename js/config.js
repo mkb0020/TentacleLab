@@ -1,5 +1,5 @@
-// config.js 
-// UPDATED 3.20.26 @ 7:30PM
+// config.js
+// UPDATED 3.21.26 11:30AM
 
 export const CFG = {
   // ── STRUCTURE ────────────────────────────────────────
@@ -33,3 +33,9 @@ export const CFG = {
 };
 
 export const DEFAULTS = Object.freeze({ ...CFG });
+
+// ── TANK PERFORMANCE BUDGET = TOTAL RENDERED SEGMENTS = CREATURES x TENTACLES x SEGMENTS PER TENTACLE.───────────────────────────
+export const TANK = Object.freeze({
+  SEGMENT_BUDGET: 600,   // SEGMENT_BUDGET IS PRIMARY GATE;
+  MAX_CREATURES:  25,    // MSAFETY NET.
+});
