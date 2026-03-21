@@ -5,16 +5,16 @@ export const CFG = {
   // ── STRUCTURE ────────────────────────────────────────
   TENTACLE_COUNT:               8,
   TENTACLE_SEGMENTS:            12,
-  TENTACLE_SEGMENT_LENGTH:     15,
-  TENTACLE_BASE_WIDTH:         8.5,
+  TENTACLE_SEGMENT_LENGTH:     11.5,
+  TENTACLE_BASE_WIDTH:         4,
   // ── MOTION ──────────────────────────────────────────
   TENTACLE_CURL_STRENGTH:    0.14,
   TENTACLE_MAX_BEND:     Math.PI / 3,
   TENTACLE_ANCHOR_SWAY:         0.5,
   TENTACLE_WANDER_SPEED:     0.01,   //PLACEHOLDER
   // ── ANCHORING ───────────────────────────────────────
-  TENTACLE_ANCHOR_RADIUS:      18,
-  TENTACLE_ANCHOR_Y_OFFSET:    32.5,
+  TENTACLE_ANCHOR_RADIUS:      10.5,
+  TENTACLE_ANCHOR_Y_OFFSET:    19.5,
   // ── TIP PHYSICS ─────────────────────────────────────
   TENTACLE_TIP_GRAVITY:        160,
   TENTACLE_TIP_STIFFNESS:       7.5,
@@ -29,7 +29,7 @@ export const CFG = {
   // ── VISUAL ──────────────────────────────────────────
   SPLINE_COLOR:          '#44004d',
   GLOW_COLOR:            '#aa05ad',
-  SIZE:                        115,
+  SIZE:                        80,
 };
 
 export const DEFAULTS = Object.freeze({ ...CFG });

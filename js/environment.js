@@ -30,8 +30,8 @@ constructor(w, h) {
 
   this._bubbles     = [];
   this._lightShafts = [];
-  this._spawnBubbles(48);
-  this._spawnShafts(6);
+  this._spawnBubbles(30);
+  this._spawnShafts(4);
   this._spawnSeaweed();
 
 }
@@ -123,7 +123,7 @@ drawBackground(ctx) {
     for (const b of this._bubbles) {
       ctx.beginPath();
       ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
-      ctx.strokeStyle = `rgba(0,255,255,${b.alpha * 0.9})`;
+      ctx.strokeStyle = `rgba(0,255,255,${b.alpha * 0.7})`;
       ctx.lineWidth   = b.r * 0.18;
       ctx.stroke();
 
@@ -196,8 +196,8 @@ drawBackground(ctx) {
 
   // ── SEAWEED ───────────────────────────────────────────────────────────────
 _spawnSeaweed() {
-  const xFracs = [0.04, 0.10,   // LEFT SIDE
-                  0.84, 0.97];   // RIGHT SIDE
+  const xFracs = [0.04, 0.09,   // LEFT SIDE
+                  0.81, 0.95];   // RIGHT SIDE
 
   this._seaweedClusters = xFracs.map(xf => {
     const strandCount = 5 + Math.floor(Math.random() * 5);
