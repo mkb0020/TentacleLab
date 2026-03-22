@@ -1,13 +1,13 @@
 // main.js
-// UPDATED: 3.21.26 @ 12PM
+// UPDATED: 3.22.26 @ 9:30AM
 
-import { CFG, DEFAULTS }    from './config.js';
 import { TentacleSystem }   from './tentacles.js';
 import { TentacleLabUI }    from './ui.js';
 import { AudioSystem }      from './audio.js';
 import { StateManager }     from './stateManager.js';
 import { Aquarium }         from './aquarium.js';
 import { AquariumUI }       from './aquariumUI.js';
+import { CFG, DEFAULTS, HEAD_CONFIGS } from './config.js';
 
 // ── CANVAS SETUP ─────────────────────────────────────────────────────────────
 const canvas = document.getElementById('canvas');
@@ -49,11 +49,45 @@ resize();
 rebuildSystem();
 
 // ── HEAD IMAGE ────────────────────────────────────────────────────────────────
-let headImg = new Image();
-headImg.src = 'public/images/head.png';
-headImg.onerror = () => { headImg = null; };
+let headImg = null;
 
 function loadCustomHead(img) { headImg = img; }
+
+// SPRITE SHEET — LOADED ONCE; INDIVIDUAL FRAMES CROPPED ON DEMAND
+const headsSheet = new Image();
+headsSheet.src = 'public/images/heads.png';
+headsSheet.onload = () => {
+  ui.setHeadsImage(headsSheet);
+  selectHead(0);  // APPLY FIRST PRESET + SHOW FIRST FRAME ON BOOT
+};
+headsSheet.onerror = () => console.warn('[Fiat Tentacula] heads.png not found');
+
+/**
+ * CROP FRAME `INDEX` FROM THE SPRITE SHEET, APPLY ITS PRESET CONFIG,
+ * AND SYNC THE UI SLIDERS.
+ * @param {number} index
+ */
+function selectHead(index) {
+  if (!headsSheet.complete || !headsSheet.naturalWidth) return;
+
+  const count  = HEAD_CONFIGS.length;
+  const frameW = headsSheet.naturalWidth / count;
+  const frameH = headsSheet.naturalHeight;
+
+  const crop   = document.createElement('canvas');
+  crop.width   = frameW;
+  crop.height  = frameH;
+  crop.getContext('2d').drawImage(headsSheet, index * frameW, 0, frameW, frameH, 0, 0, frameW, frameH);
+
+  const img  = new Image();
+  img.onload = () => { headImg = img; };
+  img.src    = crop.toDataURL();
+
+  Object.assign(CFG, DEFAULTS, HEAD_CONFIGS[index].cfg);
+  ui.syncToConfig();   
+  rebuildSystem();
+}
+
 
 // ── AUDIO ─────────────────────────────────────────────────────────────────────
 const audio = new AudioSystem();
@@ -93,6 +127,7 @@ const ui = new TentacleLabUI({
   onRebuild:  rebuildSystem,
   onHeadLoad: loadCustomHead,
   audio,
+  onHeadSelect: selectHead, 
 
   // V2: RELEASE TO AQUARIUM
   onRelease: () => {

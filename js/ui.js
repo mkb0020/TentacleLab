@@ -1,5 +1,7 @@
 // UI.JS
-// UPDATED: 3/21/26 @ 6pm
+// UPDATED: 3.22.26 @ 9:30 AM
+
+import { HEAD_CONFIGS } from './config.js'; 
 
 // ── SLIDER PARAM DEFINITIONS ─────────────────────────────────────────────────
 const PARAMS = [
@@ -38,23 +40,24 @@ const SECTION_BEFORE = {
 };
 
 export class TentacleLabUI {
-  constructor({ canvas, cfg, defaults, systemRef, onRebuild, onHeadLoad, audio, onRelease }) {
-    this._canvas     = canvas;
-    this._cfg        = cfg;
-    this._defaults   = defaults;
-    this._systemRef  = systemRef;
-    this._onRebuild  = onRebuild;
-    this._onHeadLoad = onHeadLoad;
-    this._audio      = audio;
-    this._onRelease  = onRelease;  // V2: release current config into aquarium
+  constructor({ canvas, cfg, defaults, systemRef, onRebuild, onHeadLoad, audio, onRelease, onHeadSelect }) {
+    this._canvas      = canvas;
+    this._cfg         = cfg;
+    this._defaults    = defaults;
+    this._systemRef   = systemRef;
+    this._onRebuild   = onRebuild;
+    this._onHeadLoad  = onHeadLoad;
+    this._audio       = audio;
+    this._onRelease   = onRelease;
+    this._onHeadSelect = onHeadSelect; 
 
-    this._panel   = null;
-    this._leftPanel = null;
-    this._toast   = null;
-    this._sliders = {};
+    this._panel        = null;
+    this._leftPanel    = null;
+    this._toast        = null;
+    this._sliders      = {};
     this._colorPickers = {};
+    this._selectedHead = 0;             
 
-    // EXPOSED SO MAIN.JS CAN CALL AFTER MODE SWITCH
     this._updateToggleButtons = null;
   }
 
@@ -79,6 +82,7 @@ export class TentacleLabUI {
             <span id="tlab-vol-label">VOL</span>
             <input id="tlab-vol-slider" type="range" min="0" max="1" step="0.02" value="${this._audio._volume}">
           </div>
+          <div id="tlab-head-selector"></div>
           <div id="tlab-colors"></div>
           <div id="tlab-buttons">
             <button class="tlab-btn release" id="tlab-release-btn">🌊 Release to Aquarium</button>
@@ -206,6 +210,65 @@ export class TentacleLabUI {
 
     updateToggleButtons();
   }
+
+
+  /**
+    * CALLED BY main.js ONCE heads.png HAS LOADED. POPULATES THE THUMBNAIL STRIP AND SELECTS INDEX 0.
+   * @param {HTMLImageElement} img
+   */
+  setHeadsImage(img) {
+    this._headsImg = img;
+    this._buildHeadSelector(img);
+  }
+
+  _buildHeadSelector(img) {
+    const container = document.getElementById('tlab-head-selector');
+    if (!container) return;
+    container.innerHTML = '';
+
+    const count  = HEAD_CONFIGS.length;
+    const frameW = img.naturalWidth  / count;
+    const frameH = img.naturalHeight;
+
+    // DISPLAY AT A COMFORTABLE FIXED HEIGHT
+    const THUMB_H = 64;
+    const THUMB_W = Math.round(frameW / frameH * THUMB_H);
+
+    for (let i = 0; i < count; i++) {
+      const wrap = document.createElement('div');
+      wrap.className   = 'tlab-head-thumb' + (i === this._selectedHead ? ' selected' : '');
+      wrap.dataset.idx = String(i);
+      wrap.title       = HEAD_CONFIGS[i].name;
+
+      // Mini canvas — crop one frame from the sprite sheet
+      const c   = document.createElement('canvas');
+      c.className = 'tlab-head-canvas';
+      c.width   = THUMB_W;
+      c.height  = THUMB_H;
+      c.getContext('2d').drawImage(img, i * frameW, 0, frameW, frameH, 0, 0, THUMB_W, THUMB_H);
+
+      const label = document.createElement('span');
+      label.className   = 'tlab-head-name';
+      label.textContent = HEAD_CONFIGS[i].name;
+
+      wrap.appendChild(c);
+      wrap.appendChild(label);
+      wrap.addEventListener('click', () => this._pickHead(i));
+      container.appendChild(wrap);
+    }
+  }
+
+  _pickHead(index) {
+    this._selectedHead = index;
+    document.querySelectorAll('.tlab-head-thumb').forEach((el, i) => {
+      el.classList.toggle('selected', i === index);
+    });
+    this._onHeadSelect?.(index);
+  }
+
+  // ── PUBLIC SYNC (called by main.js after preset swap) ─────────────────────
+  syncToConfig() { this._syncSlidersToConfig(); }
+
 
   // ── SLIDERS ───────────────────────────────────────────────────────────────
   _buildSliders() {

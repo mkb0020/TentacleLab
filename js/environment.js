@@ -1,5 +1,5 @@
 // environment.js
-// UPDATED: 3/21/2026 @ 12PM
+// UPDATED: 3/22/2026 @ 9:30AM
 
 // ── PALETTE ──────────────────────────────────────────────────────────────────
 const P = {
@@ -51,14 +51,14 @@ constructor(w, h) {
 
   // ── DRAW LAYERS ──────────────────────────────────────────────────────────
 drawBackground(ctx) {
-  // 1. BACKGROUND IMAGE (YOUR AQUARIUM ART, FULL SIZE)
+  // 1. BACKGROUND IMAGE ( AQUARIUM ART, FULL SIZE)
   if (this._bgImg?.complete && this._bgImg.naturalWidth > 0) {
     ctx.drawImage(this._bgImg, 0, 0, this.w, this.h);
   }
 
-  // 2. DARK GRADIENT OVERLAY ON TOP AT REDUCED OPACITY
+  // 2. DARK GRADIENT OVERLAY ON TOP 
   ctx.save();
-  ctx.globalAlpha = 0.45;  // ← TUNE THIS: 0.3 = MORE IMAGE, 0.6 = MORE DARK
+  ctx.globalAlpha = 0.45;  // 0.3 = MORE IMAGE, 0.6 = MORE DARK
   const g = ctx.createLinearGradient(0, 0, 0, this.h);
   g.addColorStop(0,    '#040010');
   g.addColorStop(0.25, '#07001e');
@@ -196,8 +196,8 @@ drawBackground(ctx) {
 
   // ── SEAWEED ───────────────────────────────────────────────────────────────
 _spawnSeaweed() {
-  const xFracs = [0.04, 0.09,   // LEFT SIDE
-                  0.81, 0.95];   // RIGHT SIDE
+  const xFracs = [0.03, 0.09,   // LEFT SIDE
+                  0.9, 0.97];   // RIGHT SIDE
 
   this._seaweedClusters = xFracs.map(xf => {
     const strandCount = 5 + Math.floor(Math.random() * 5);
@@ -225,7 +225,6 @@ drawSeaweed(ctx) {
       this._drawSeaweedStrand(ctx, baseX + strand.offset, this.h, strand);
     }
   }
-  // Reset shadow so it doesn't bleed into subsequent draws
   ctx.shadowBlur = 0;
   ctx.restore();
 }

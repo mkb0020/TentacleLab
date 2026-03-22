@@ -1,5 +1,5 @@
 // AQUARIUM.JS
-// UPDATED: 3.21.26 @ 12PM
+// UPDATED: 3.22.26 @ 9:30AM
 
 import { Creature }     from './creature.js';
 import { Environment }  from './environment.js';
@@ -101,8 +101,64 @@ export class Aquarium {
       c.update(dt, time, bounds);
     }
 
+    this._resolveCollisions(dt);
+
     // PRUNE DEAD CREATURES 
     this.creatures = this.creatures.filter(c => c.alive);
+  }
+
+  // ── SOFT CREATURE COLLISIONS ──────────────────────────────────────────────
+  /**
+   * PAIRWISE SWEEP — WHEN TWO CREATURES OVERLAP, APPLY A GENTLE SEPARATING
+   * VELOCITY IMPULSE PROPORTIONAL TO PENETRATION DEPTH.  NO HARD SNAP:
+   * THE UNDERWATER FEEL COMES FROM THE IMPULSE BEING SMALL AND THE EXISTING
+   * DRAG
+   *
+   * @param {number} dt  DELTA TIME (SECONDS) — USED TO SCALE THE SOFT PUSH
+   */
+  _resolveCollisions(dt) {
+    const cs = this.creatures;
+    const n  = cs.length;
+
+    for (let i = 0; i < n; i++) {
+      const a = cs[i];
+      if (!a.alive) continue;
+
+      for (let j = i + 1; j < n; j++) {
+        const b = cs[j];
+        if (!b.alive) continue;
+
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const distSq = dx * dx + dy * dy;
+
+        // COMBINED RADIUS — HEAD SIZE IS THE COLLISION BOUNDARY
+        const minDist = (a.cfg.SIZE + b.cfg.SIZE) * 0.5;
+        const minDistSq = minDist * minDist;
+
+        if (distSq >= minDistSq) continue; // NO OVERLAP — SKIP
+
+        const dist   = Math.sqrt(distSq) || 0.0001;
+        const nx     = dx / dist;  // UNIT NORMAL POINTING A → B
+        const ny     = dy / dist;
+
+        // OVERLAP RATIO (0 = JUST TOUCHING, 1 = FULLY COINCIDENT)
+        const overlap = 1 - dist / minDist;
+
+        const impulse = overlap * 55 * dt;
+
+        a.vx -= nx * impulse;
+        a.vy -= ny * impulse;
+        b.vx += nx * impulse;
+        b.vy += ny * impulse;
+
+        const correction = (minDist - dist) * 0.08;
+        a.x -= nx * correction;
+        a.y -= ny * correction;
+        b.x += nx * correction;
+        b.y += ny * correction;
+      }
+    }
   }
 
   // ── DRAW ──────────────────────────────────────────────────────────────────
