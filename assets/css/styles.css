@@ -260,21 +260,26 @@
 #tlab-mute-btn {
  
   height: 30px; width:30px; cursor: pointer; 
-  background: rgba(255, 255, 255, 0.087);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(0, 255, 255, 0.12);
-  border-radius: 24px;
-  box-shadow: 
-        0 20px 50px -15px rgba(0, 0, 0, 0.5),
-        inset 0 1px 0 rgba(0, 255, 255, 0.08);
+  background: transparent;
   background-image: url('../../public/images/icons.png');
   background-repeat: no-repeat;
   background-size: auto 100%;   
   background-position: 0 0;    
   color: transparent;  
   transition: all 0.15s; white-space: nowrap; flex-shrink: 0;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  border: none;
 }
+
+#tlab-mute-btn:focus,
+#tlab-mute-btn:focus-visible,
+#tlab-mute-btn:active {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
 #tlab-mute-btn:hover { background: rgba(0,255,255,0.45); color: #000000; }
 #tlab-mute-btn.muted { 
   background-position: -30px 0; 
@@ -332,7 +337,7 @@
   box-shadow: 
         0 20px 50px -15px rgba(0, 0, 0, 0.5),
         inset 0 1px 0 rgba(0, 255, 255, 0.08);
-  padding: 15px 15px;
+  padding: 10px 15px;
 }
 
 .tlab-section {
@@ -392,11 +397,11 @@
   border: 1px solid var(--CoolGray);
   color: #b8a8ee;
   font-family: 'SpaceLetters', monospace;
-  font-size: 0.7rem; padding: 7px 7px;
+  font-size: 0.7rem; padding: 5px 7px;
   cursor: pointer; border-radius: 12px;
   text-transform: uppercase; letter-spacing: 1px;
   transition: all 0.15s; text-align: center;
-   min-height: 60px;
+   min-height: 45px;
 }
 .tlab-btn:hover { background: rgba(0, 255, 255, 0.276); border-color: (var(--PlasmaPurple)); color: #fff; }
 .tlab-btn.copy   { border-color: #c6f3cf38; color: #70e890; }
@@ -705,7 +710,8 @@
 #tlab-head-selector {
   display: flex;
   gap: 8px;
-  justify-content: center;
+  overflow-x: auto;
+  justify-content: flex-start;
   padding: 10px 12px;
   margin-bottom: 1rem;
   background: rgba(255, 255, 255, 0.087);
@@ -717,6 +723,10 @@
     0 20px 50px -15px rgba(0, 0, 0, 0.5),
     inset 0 1px 0 rgba(0, 255, 255, 0.08);
 }
+
+#tlab-head-selector::-webkit-scrollbar { height: 5px; }
+#tlab-head-selector::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0); }
+#tlab-head-selector::-webkit-scrollbar-thumb { background: var(--VortexViolet); border-radius: 2px; }
 
 .tlab-head-thumb {
   display: flex;

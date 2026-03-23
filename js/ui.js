@@ -85,11 +85,11 @@ export class TentacleLabUI {
           <div id="tlab-head-selector"></div>
           <div id="tlab-colors"></div>
           <div id="tlab-buttons">
-            <button class="tlab-btn release" id="tlab-release-btn">🌊 Release to Aquarium</button>
-            <button class="tlab-btn rand"    id="tlab-rand-btn">Surprise Config!</button>
+            <button class="tlab-btn release" id="tlab-release-btn">Add to Aquarium</button>
+            <button class="tlab-btn rand"    id="tlab-rand-btn">Surprise Config</button>
             <button class="tlab-btn copy"    id="tlab-copy-btn">Copy Config</button>
             <button class="tlab-btn"         id="tlab-reset-btn">Reset</button>
-            <button class="tlab-btn load"    id="tlab-load-btn">Load New Head</button>
+            <button class="tlab-btn load"    id="tlab-load-btn">Load Custom Head</button>
           </div>
         </div>
         <input type="file" id="tlab-file-input" accept="image/*">
