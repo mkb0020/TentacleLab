@@ -1,5 +1,5 @@
 // traits.js
-// UPDATED: 3.23.26 1:30AM
+// UPDATED: 3.23.26 3:30AM
 
 // ── HELPERS (MODULE-LEVEL SO LENGTHPREFERENCESCORE CAN USE THEM) ─────────────
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
@@ -32,7 +32,7 @@ export function deriveTraits(cfg) {
 
  // ── NORMALIZE — MAP EACH RAW VALUE TO 0–1 USING ITS ACTUAL SLIDER MAX ───
   const norm = {
-    width: clamp(cfg.TENTACLE_BASE_WIDTH      / 50,  0, 1),
+    width: clamp(cfg.TENTACLE_BASE_WIDTH      / 20,  0, 1),
     count: clamp(cfg.TENTACLE_COUNT           / 8,   0, 1),
     segs:  clamp(cfg.TENTACLE_SEGMENTS        / 14,  0, 1),
     curl:  clamp(cfg.TENTACLE_CURL_STRENGTH   / 2.0, 0, 1),

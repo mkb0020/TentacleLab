@@ -1,5 +1,5 @@
 // config.js
-// UPDATED 3.22.26 @ 9:30 AM
+// UPDATED 3.23.26 @ 3:30am
 
 export const CFG = {
   // ── STRUCTURE ────────────────────────────────────────
@@ -89,6 +89,31 @@ export const HEAD_CONFIGS = [
       SIZE:                        80,
       SPLINE_COLOR:                '#44004d', // PURPLE-ISH -> Amethystus
       GLOW_COLOR:                  '#aa05ad',
+    },
+  },
+    {
+    name: 'Tuberosus adhaerens', // NAME NOT FINALIZED - ONCE traits.js IS COMPLETED, NAMES WILL BE REVISED TO MATCH THEIR TRAITS: Tuberosus adhaerens = lumpy + clingy - THIS ONE IS SHORT BUT NOPE LENGTH 
+    cfg: {
+      TENTACLE_COUNT: 4,
+      TENTACLE_SEGMENTS: 9,
+      TENTACLE_SEGMENT_LENGTH: 7,
+      TENTACLE_BASE_WIDTH: 5.50,
+      TENTACLE_CURL_STRENGTH: 0.32,
+      TENTACLE_MAX_BEND: Math.PI / 6,  // ~33°
+      TENTACLE_ANCHOR_SWAY: 0.50,
+      TENTACLE_ANCHOR_RADIUS: 11.00,
+      TENTACLE_ANCHOR_Y_OFFSET: 16.00,
+      TENTACLE_TIP_GRAVITY: 124,
+      TENTACLE_TIP_STIFFNESS: 11.00,
+      TENTACLE_TIP_DRAG: 0.88,
+      TENTACLE_TIP_BIAS: 71,
+      TENTACLE_TIP_REPEL_RADIUS: 15,
+      TENTACLE_TIP_REPEL_STRENGTH: 280,
+      TENTACLE_REPEL_RADIUS: 20,
+      TENTACLE_REPEL_STRENGTH: 235,
+      SIZE: 57,
+      SPLINE_COLOR: '#4d0f00',
+      GLOW_COLOR:   '#ff0000',
     },
   },
 ];

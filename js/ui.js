@@ -1,5 +1,5 @@
 // UI.JS
-// UPDATED: 3.23.26 @ 1AM
+// UPDATED: 3.23.26 @ 3:30AM
 
 import { HEAD_CONFIGS } from './config.js'; 
 
@@ -9,7 +9,7 @@ const PARAMS = [
   { key: 'TENTACLE_COUNT',              label: 'Tentacle QTY',    min: 1,    max: 8,    step: 1,    rebuild: true },
   { key: 'TENTACLE_SEGMENTS',           label: 'Segments',        min: 2,    max: 14,   step: 1,    rebuild: true },
   { key: 'TENTACLE_SEGMENT_LENGTH',     label: 'Seg Length',      min: 3,    max: 30,   step: 0.5,  live: 'segLen' },
-  { key: 'TENTACLE_BASE_WIDTH',         label: 'Base Width',      min: 2,    max: 30,   step: 0.5,  live: 'baseWidth' },
+  { key: 'TENTACLE_BASE_WIDTH',         label: 'Base Width',      min: 2,    max: 20,   step: 0.5,  live: 'baseWidth' },
   // MOTION
   { key: 'TENTACLE_CURL_STRENGTH',      label: 'Curl Strength',   min: 0,    max: 2.0,  step: 0.01, live: 'curlStr' },
   { key: 'TENTACLE_MAX_BEND',           label: 'Max Bend (°)',    min: 10,   max: 180,  step: 1,    special: 'maxBend' },
