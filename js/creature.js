@@ -1,8 +1,13 @@
 // CREATURE.JS
-// UPDATED: 3.21.26 @ 12PM
+// UPDATED: 3.23.26 @ 1 AM
 
 import { TentacleSystem } from './tentacles.js';
 import { deriveTraits }   from './traits.js';
+
+// HOW FAST HUNGER RISES PER SECOND AT METBOLISM = 1
+//  AT METABOLISM 0.1 (MIN) CREATURE TAKES ~55 SECONDS TO GO - TO 1
+// AT 1.0 (MAX) TAKES ~5.5s — DELIBERATELY PUNISHING 
+const HUNGER_RATE = 0.018;
 
 export class Creature {
   /**
@@ -13,12 +18,11 @@ export class Creature {
    */
   constructor(cfg, x, y, headImg = null) {
     // ── IDENTITY ──────────────────────────────────────────────────────────
-    this.cfg     = { ...cfg };        // OWN COPY - MUTATIONS DON'T BLEED OVER 
+    this.cfg     = { ...cfg };
     this.headImg = headImg;
-    this.traits  = deriveTraits(cfg); // HIDDEN NUMBERS
+    this.traits  = deriveTraits(cfg);
 
     // ── PHYSICS ───────────────────────────────────────────────────────────
-    // TENACLESYSTEM READS X / Y / SCALE DIRECTLY FROM `THIS` EACH FRAME
     this.x     = x;
     this.y     = y;
     this.scale = 1.0;
@@ -26,20 +30,39 @@ export class Creature {
     this.vy    = (Math.random() - 0.5) * 25;
 
     // ── WANDER STATE ──────────────────────────────────────────────────────
-    this._wAngle  = Math.random() * Math.PI * 2; // CURRENT SWIM HEADING (RAD)
+    this._wAngle  = Math.random() * Math.PI * 2;
     this._wTimer  = 0;
-    this._wPeriod = 1.2 + Math.random() * 2.5;   // SECONDS BETWEEN NUDGES
+    this._wPeriod = 1.2 + Math.random() * 2.5;
 
     // ── LIFE STATE ────────────────────────────────────────────────────────
     this.alive = true;
-    this.age   = 0;     // SECONDS SINCE SPAWN
+    this.age   = 0;     //  SECONDS SINCE SPAWN
 
-    // V2 HOOKS —
-    this.hunger  = 0.5; // 0 = FULL, 1 = STARVING
-    this.health  = 1.0; // 0 = DEAD
+    this.hunger = 0.3 + Math.random() * 0.2;  // START SLIGHTLY HUNGRY
+    this.health = 1.0;
+
+    // WHAT CREATURE IS CURRENTLY "DOING" - READABLE BY HUD / DEBUG OVERLAY
+    // VALUES: 'WANDERING' | 'ATTRACTED' | 'FLEEING' | 'AGGRESSIVE' | 'HUNGRY'
+    this.behaviorState = 'wandering';
 
     // ── TENTACLE SYSTEM ───────────────────────────────────────────────────
     this._sys = new TentacleSystem(this, this.cfg);
+  }
+
+  // ── EFFECTIVE AGGRESSION ──────────────────────────────────────────────────
+  // HUNGER MAKES CREATURES MEANER. THIS IS WHAT THE BEHAVIOR ENGINE SHOULD
+  // READ — NOT TRAITS.AGGRESSION DIRECTLY.
+  get effectiveAggression() {
+    const hungerBoost = Math.max(0, this.hunger - 0.55) * 0.7;
+    return Math.min(1, this.traits.aggression + hungerBoost);
+  }
+
+  // ── EFFECTIVE SPEED SCALE ────────────────────────────────────────────────
+  // OVERFED / VERY SICK CREATURES MOVE SLUGGISHLY
+  get effectiveSpeedScale() {
+    if (this.health < 0.4) return 0.35 + this.health * 0.5;  // VERY SICK = VERY SLOW
+    if (this.hunger < 0.08) return 0.55;                      // STUFFED = LETHARGIC
+    return 1.0;
   }
 
   // ── MAIN UPDATE ──────────────────────────────────────────────────────────
@@ -52,14 +75,46 @@ export class Creature {
     if (!this.alive) return;
     this.age += dt;
 
+    this._tickHunger(dt);
+
     this._stepWander(dt);
     this._steerBoundary(dt, bounds);
+
+    // APPLY SPEED SCALE AFTER STEERING IS COMPUTED 
+    const spd = this.effectiveSpeedScale;
+    if (spd < 1.0) {
+      this.vx *= spd;
+      this.vy *= spd;
+    }
 
     this.x += this.vx * dt;
     this.y += this.vy * dt;
 
     this._updateTipBias();
     this._sys.update(dt, time);
+  }
+
+  // ── HUNGER ───────────────────────────────────────────────────────────────
+  _tickHunger(dt) {
+    // METABOLISM DRIVES HOW FAST HUNGER RISES
+    this.hunger += this.traits.metabolism * HUNGER_RATE * dt;
+    this.hunger  = Math.min(this.hunger, 1.0);
+
+    // STARVATION STARTS CHIPPING HEALTH ONCE HUNGER IS CRITICAL
+    if (this.hunger > 0.85) {
+      this.health -= (this.hunger - 0.85) * 0.08 * dt;
+    }
+
+    // UPDATE BEHAVIORAL READOUT SO HUD / DEBUG CAN SURFACE IT
+    if (this.hunger > 0.75) {
+      this.behaviorState = 'hungry';
+    }
+
+    if (this.health <= 0) {
+      this.health = 0;
+      this.alive  = false;
+      this._sys.triggerDeath();
+    }
   }
 
   // ── WANDER ───────────────────────────────────────────────────────────────
@@ -70,17 +125,14 @@ export class Creature {
       this._wTimer  = 0;
       this._wPeriod = 1 + Math.random() * 3;
 
-      // ERRATIC CREATURES TURN HARDER; CALM ONES MAKE GENTLE ARCS
       const maxTurn = Math.PI * this.traits.wanderErratic;
       this._wAngle += (Math.random() - 0.5) * 2 * maxTurn;
     }
 
-    // CRUISE SPEED FROM HIDDEN TRAIT
     const spd = this.traits.wanderSpeed;
     const tx  = Math.cos(this._wAngle) * spd;
     const ty  = Math.sin(this._wAngle) * spd;
 
-    // SMOOTH VELOCITY TOWARD TARGET HEADING (DELIBERATE SWIMMING, NOT JERKY)
     const smooth = Math.min(1, 1.8 * dt);
     this.vx += (tx - this.vx) * smooth;
     this.vy += (ty - this.vy) * smooth;
@@ -97,16 +149,13 @@ export class Creature {
     if (this.y > h - margin)   this.vy -= (this.y - (h - margin))   * force * dt;
   }
 
-  // ── TIP BIAS: TRAIL BEHIND MOVEMENT - POINTS TENTACLE REST-POSITIONS OPPOSITE TO VELOCITY DIRECTION SO ARMS -  NATURALLY STREAM BEHIND THE CREATURE AS IT SWIMS.
+  // ── TIP BIAS ─────────────────────────────────────────────────────────────
   _updateTipBias() {
     const speed = Math.hypot(this.vx, this.vy);
-    if (speed < 8) return;  // HOVERING — KEEP EXISTING FAN LAYOUT
+    if (speed < 8) return;
 
-    // REVERSE UNIT VECTOR (TRAIL DIRECTION)
     const tx = -this.vx / speed;
     const ty = -this.vy / speed;
-
-    // PERPENDICULAR SPREAD AXIS
     const px = -ty;
     const py =  tx;
 
@@ -114,7 +163,7 @@ export class Creature {
     const n    = this._sys.tentacles.length;
 
     this._sys.tentacles.forEach((t, i) => {
-      const spread = n > 1 ? (i / (n - 1) - 0.5) * 2 : 0; // −1 … +1
+      const spread = n > 1 ? (i / (n - 1) - 0.5) * 2 : 0;
       t.tipBiasX   = tx * bias * 0.45 + px * spread * bias * 0.55;
       t.tipBiasY   = ty * bias * 0.45 + py * spread * bias * 0.55;
     });
@@ -124,7 +173,6 @@ export class Creature {
   draw(ctx) {
     if (!this.alive) return;
 
-    // TENTACLES BEHIND HEAD
     this._sys.draw(ctx);
 
     const size = this.cfg.SIZE * this.scale;

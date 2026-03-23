@@ -1,25 +1,26 @@
 // AQUARIUMUI.JS
-// UPDATED: 3.21.26 @ 12PM
+// UPDATED: 3.23.26 @ 1am
 export class AquariumUI {
   /**
    * @param {object} opts
    * @param {() => void}  opts.onBackToLab    
    * @param {() => void}  opts.onAddCreature  
    */
-  constructor({ onBackToLab, onAddCreature }) {
+  constructor({ onBackToLab, onAddCreature, onRemoveCreature, }) {
     this._onBackToLab    = onBackToLab;
     this._onAddCreature  = onAddCreature;
+    this._onRemoveCreature  = onRemoveCreature;  
     this._hud            = null;
     this._countEl        = null;
     this._capFillEl      = null;
     this._capLabelEl     = null;
     this._addBtn         = null;
+    this._removeBtn         = null;  
   }
 
   // ── BUILD ─────────────────────────────────────────────────────────────────
   build() {
     if (document.getElementById('tlab-aquarium-hud')) return;
-
     const hud = document.createElement('div');
     hud.id        = 'tlab-aquarium-hud';
     hud.className = 'hidden';
@@ -31,6 +32,7 @@ export class AquariumUI {
       </div>
       <span   id="aq-cap-label" class="aq-cap-label">0%</span>
       <button id="aq-add-btn"   class="aq-btn aq-add">+ Add to Tank</button>
+      <button id="aq-remove-btn"   class="aq-btn aq-remove">- Remove</button> 
     `;
     document.body.appendChild(hud);
 
@@ -39,9 +41,11 @@ export class AquariumUI {
     this._capFillEl  = hud.querySelector('#aq-cap-fill');
     this._capLabelEl = hud.querySelector('#aq-cap-label');
     this._addBtn     = hud.querySelector('#aq-add-btn');
+    this._removeBtn  = hud.querySelector('#aq-remove-btn');  
 
     hud.querySelector('#aq-back-btn').addEventListener('click', () => this._onBackToLab());
     this._addBtn.addEventListener('click', () => this._onAddCreature());
+    this._removeBtn.addEventListener('click', () => this._onRemoveCreature());  
   }
 
   // ── STATE ─────────────────────────────────────────────────────────────────
@@ -87,4 +91,11 @@ export class AquariumUI {
         : '';
     }
   }
+
+
+  setRemovalMode(active) {
+  if (!this._removeBtn) return;
+  this._removeBtn.classList.toggle('active', active);
+  this._removeBtn.textContent = active ? '✕ Cancel Remove' : '− Remove';
+}
 }

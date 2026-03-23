@@ -1,20 +1,34 @@
 // AQUARIUM.JS
-// UPDATED: 3.22.26 @ 9:30AM
+// UPDATED: 3.23.26 @ 1AM
 
-import { Creature }     from './creature.js';
-import { Environment }  from './environment.js';
-import { TANK }         from './config.js';
+import { Creature }                              from './creature.js';
+import { Environment }                           from './environment.js';
+import { TANK }                                  from './config.js';
+import { lengthPreferenceScore, configSimilarity } from './traits.js';
+
+// ── BEHAVIOR CONSTANTS ────────────────────────────────────────────────────────
+// HOW FAR A CREATURE CAN "SENSE" OTHERS (PX).
+// KEPT DELIBERATELY MODEST SO BEHAVIOR FEELS LOCAL, NOT TELEPATHIC.
+const SENSE_RADIUS    = 240;
+const SENSE_RADIUS_SQ = SENSE_RADIUS * SENSE_RADIUS;
+
+// MAX STEERING FORCE APPLIED PER FRAME (KEEPS THINGS FLOATY, NOT SNAPPY)
+const MAX_STEER       = 1.2;
+
+// HOW STRONGLY SOCIAL FORCES COMPETE WITH THE WANDER DRIVE
+const SOCIAL_WEIGHT   = 0.45;
 
 export class Aquarium {
   /**
-   * @param {number} w  
-   * @param {number} h  
+   * @param {number} w
+   * @param {number} h
    */
   constructor(w, h) {
-    this.w          = w;
-    this.h          = h;
-    this.creatures  = [];
-    this.env        = new Environment(w, h);
+    this.w         = w;
+    this.h         = h;
+    this.creatures = [];
+    this.env       = new Environment(w, h);
+    this.hoveredCreature = null;
   }
 
   // ── LIFECYCLE ────────────────────────────────────────────────────────────
@@ -24,37 +38,23 @@ export class Aquarium {
     this.env.resize(w, h);
   }
 
-
-  /** TOTAL SEGMENT COUNT ACCROSS ALL LIVING CREATURES */
+  // ── CAPACITY ──────────────────────────────────────────────────────────────
   get totalSegments() {
     return this.creatures.reduce(
       (sum, c) => sum + c.cfg.TENTACLE_COUNT * c.cfg.TENTACLE_SEGMENTS, 0
     );
   }
 
-  /**
-   * 0–1 ratio of how full the tank is.
-   * Uses whichever limit (segments or count) is more constrained.
-   */
   get capacityRatio() {
-    const bySegments  = this.totalSegments / TANK.SEGMENT_BUDGET;
-    const byCount     = this.creatures.length / TANK.MAX_CREATURES;
+    const bySegments = this.totalSegments / TANK.SEGMENT_BUDGET;
+    const byCount    = this.creatures.length / TANK.MAX_CREATURES;
     return Math.min(1, Math.max(bySegments, byCount));
   }
 
-  /**
-   * How many segments the CURRENT lab config would cost if added.
-   * @param {object} cfg  The lab's live CFG object
-   */
   incomingCost(cfg) {
     return cfg.TENTACLE_COUNT * cfg.TENTACLE_SEGMENTS;
   }
 
-  /**
-   * Check whether a given config can be added right now.
-   * @param {object} cfg
-   * @returns {{ ok: boolean, reason: 'budget'|'count'|null }}
-   */
   canAdd(cfg) {
     if (this.creatures.length >= TANK.MAX_CREATURES) {
       return { ok: false, reason: 'count' };
@@ -65,13 +65,6 @@ export class Aquarium {
     return { ok: true, reason: null };
   }
 
-  /**
-   * ATTEMPTS TO SPAWN A CREATURE. RETURNS A RESULT OBJECT SO CALLERS CAN SHOW FEEDBACK WHEN TANK IF FULL
-   *
-   * @param {object}                cfg
-   * @param {HTMLImageElement|null} headImg
-   * @returns {{ added: boolean, creature: Creature|null, reason: string|null }}
-   */
   addCreature(cfg, headImg = null) {
     const check = this.canAdd(cfg);
     if (!check.ok) {
@@ -88,33 +81,180 @@ export class Aquarium {
 
   get count() { return this.creatures.filter(c => c.alive).length; }
 
+  // ── REMOVAL ───────────────────────────────────────────────────────────────
+removeCreatureAt(x, y) {
+  let best = null, bestDist = Infinity;
+  for (const c of this.creatures) {
+    if (!c.alive) continue;
+    const dx = c.x - x, dy = c.y - y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const hitR = Math.max(55, c.cfg.SIZE * 0.65);
+    if (dist < hitR && dist < bestDist) { bestDist = dist; best = c; }
+  }
+  if (best) {
+    best.alive = false;
+    best._sys.triggerDeath();
+    this.hoveredCreature = null;
+    return true;
+  }
+  return false;
+}
+
+getCreatureAt(x, y) {
+  let best = null, bestDist = Infinity;
+  for (const c of this.creatures) {
+    if (!c.alive) continue;
+    const dx = c.x - x, dy = c.y - y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const hitR = Math.max(55, c.cfg.SIZE * 0.65);
+    if (dist < hitR && dist < bestDist) { bestDist = dist; best = c; }
+  }
+  return best;
+}
+
   // ── UPDATE ────────────────────────────────────────────────────────────────
   /**
-   * @param {number} dt    
-   * @param {number} time  
+   * @param {number} dt
+   * @param {number} time
    */
   update(dt, time) {
     this.env.update(dt);
 
     const bounds = { w: this.w, h: this.h };
+
     for (const c of this.creatures) {
       c.update(dt, time, bounds);
     }
 
+    this._applyBehavior(dt);
+
     this._resolveCollisions(dt);
 
-    // PRUNE DEAD CREATURES 
+    // PRUNE DEAD CREATURES
     this.creatures = this.creatures.filter(c => c.alive);
+  }
+
+  // ── SOCIAL BEHAVIOR ───────────────────────────────────────────────────────
+  /**
+   * PAIRWISE SCAN: FOR EVERY LIVING CREATURE A, LOOK AT EVERY OTHER LIVING
+   * CREATURE B WITHIN SENSE_RADIUS AND COMPUTE HOW A FEELS ABOUT B.
+   *
+   * INFLUENCES IN PRIORITY ORDER:
+   *   1. PERSONAL SPACE VIOLATION  → ALWAYS REPEL, OVERRIDES EVERYTHING
+   *   2. HUNGER-BOOSTED AGGRESSION → FLEE FROM OR ATTACK BASED ON DOMINANCE
+   *   3. TRAIT-BASED ATTRACTION    → LENGTH PREFERENCE + SIMILARITY AFFINITY
+   *
+   * THE RESULT IS A SMALL VELOCITY NUDGE — FLOATY, NOT TELEPORTY.
+
+   */
+  _applyBehavior(dt) {
+    const cs = this.creatures;
+    const n  = cs.length;
+
+    for (let i = 0; i < n; i++) {
+      const a = cs[i];
+      if (!a.alive) continue;
+
+      let steerX = 0;
+      let steerY = 0;
+      let dominated = false; 
+
+      for (let j = 0; j < n; j++) {
+        if (i === j) continue;
+        const b = cs[j];
+        if (!b.alive) continue;
+
+        const dx     = b.x - a.x;
+        const dy     = b.y - a.y;
+        const distSq = dx * dx + dy * dy;
+
+        if (distSq > SENSE_RADIUS_SQ || distSq < 0.001) continue;
+
+        const dist = Math.sqrt(distSq);
+        const nx   = dx / dist;   // UNIT VECTOR POINTING A → B
+        const ny   = dy / dist;
+
+        // PROXIMITY falloff: 1.0 when touching, 0.0 at SENSE_RADIUS
+        const proximity = 1 - dist / SENSE_RADIUS;
+
+        // ── 1. PERSONAL SPACE ───────────────────────────────────────────
+        // ALWAYS FLEE IF B IS INSIDE A'S PERSONAL BUBBLE, REGARDLESS OF
+        // FEELINGS — EVEN CREATURES THAT LIKE EACH OTHER NEED ROOM.
+        if (dist < a.traits.personalSpace) {
+          const flee = (1 - dist / a.traits.personalSpace) * 1.1;
+          steerX -= nx * flee;
+          steerY -= ny * flee;
+          continue; // SKIP SOCAIL CALC FOR THIS PAIR
+        }
+
+        // ── 2. AGGRESSION (HUNGER-BOOSTED) ──────────────────────────────
+        const aggression = a.effectiveAggression;
+
+        // CROWD FEAR: TENTACLE-RICH CREATURES HATE BEING SURROUNDED
+        const crowdPenalty = a.traits.crowdFear * proximity * 0.3;
+
+        // IF A IS DOMINANT OVER B, IT CHASES; IF WEAKER, IT FLEES
+        if (aggression > 0.5) {
+          if (a.traits.dominance >= b.traits.dominance) {
+            // PREDATORY: MOVE TOWARD B
+            steerX += nx * aggression * 0.6 * proximity;
+            steerY += ny * aggression * 0.6 * proximity;
+          } else {
+            // OUTMATCHED: FLEE FROM B
+            steerX -= nx * aggression * 0.4 * proximity;
+            steerY -= ny * aggression * 0.4 * proximity;
+            dominated = true;
+          }
+        }
+
+        // ── 3. ATTRACTION ────────────────────────────────────────────────
+        // BASE ATTRACTION FROM TRAIT, THEN LAYERED WITH:
+        //   • HOW MUCH A LIKES B'S TENTACLE LENGTH (LENGTHPREFERENCESCORE)
+        //   • SIMILARITY AFFINITY: MID-RANGE CREATURES DRAWN TO THEIR OWN KIND
+        if (aggression < 0.7) { // DON'T ATTRACT WHILE VERY AGGRESSIVE
+          const lengthPref  = lengthPreferenceScore(a.traits, b.traits);
+          const similarity  = configSimilarity(a.cfg, b.cfg);
+
+          let attrScore = a.traits.attraction;
+          attrScore    += a.traits.similarityAffinity * similarity * 0.35;
+          attrScore    *= 0.5 + lengthPref * 0.5;   // LENGTH MODULATES, NEVER KILLS
+          attrScore    -= crowdPenalty;
+          attrScore     = Math.max(0, attrScore);
+
+          steerX += nx * attrScore * proximity * 0.5;
+          steerY += ny * attrScore * proximity * 0.5;
+        }
+      }
+
+      // ── APPLY STEERING ─────────────────────────────────────────────────
+      const mag = Math.hypot(steerX, steerY);
+      if (mag > 0.001) {
+        const capped = Math.min(mag, MAX_STEER);
+        const ux     = steerX / mag;
+        const uy     = steerY / mag;
+
+        // SKITTISH CREATURES REACT MORE; LAZY ONES DAMP SOCIAL FORCES
+        const reactivity = 0.6 + a.traits.boldness * 0.4 - a.traits.laziness * 0.3;
+        const strength   = capped * SOCIAL_WEIGHT * reactivity * a.traits.wanderSpeed;
+
+        a.vx += ux * strength * dt;
+        a.vy += uy * strength * dt;
+      }
+
+      // UPDATE READABLE BEHAVIOR STATE FOR HUD / FUTURE STATUS MESSAGES
+      if (a.behaviorState !== 'hungry') { // HUNGER STATE SET BY CREATURE ITSELF
+        if (dominated)               a.behaviorState = 'fleeing';
+        else if (a.effectiveAggression > 0.5) a.behaviorState = 'aggressive';
+        else if (Math.hypot(steerX, steerY) > 0.15) a.behaviorState = 'attracted';
+        else                         a.behaviorState = 'wandering';
+      }
+    }
   }
 
   // ── SOFT CREATURE COLLISIONS ──────────────────────────────────────────────
   /**
-   * PAIRWISE SWEEP — WHEN TWO CREATURES OVERLAP, APPLY A GENTLE SEPARATING
-   * VELOCITY IMPULSE PROPORTIONAL TO PENETRATION DEPTH.  NO HARD SNAP:
-   * THE UNDERWATER FEEL COMES FROM THE IMPULSE BEING SMALL AND THE EXISTING
-   * DRAG
-   *
-   * @param {number} dt  DELTA TIME (SECONDS) — USED TO SCALE THE SOFT PUSH
+   * PHYSICAL BODY SEPARATION — UNCHANGED FROM ORIGINAL.
+   * BEHAVIOR STEERING HAPPENS BEFORE THIS, COLLISIONS RESOLVE AFTER.
    */
   _resolveCollisions(dt) {
     const cs = this.creatures;
@@ -128,23 +268,19 @@ export class Aquarium {
         const b = cs[j];
         if (!b.alive) continue;
 
-        const dx = b.x - a.x;
-        const dy = b.y - a.y;
+        const dx     = b.x - a.x;
+        const dy     = b.y - a.y;
         const distSq = dx * dx + dy * dy;
 
-        // COMBINED RADIUS — HEAD SIZE IS THE COLLISION BOUNDARY
-        const minDist = (a.cfg.SIZE + b.cfg.SIZE) * 0.5;
+        const minDist   = (a.cfg.SIZE + b.cfg.SIZE) * 0.5;
         const minDistSq = minDist * minDist;
 
-        if (distSq >= minDistSq) continue; // NO OVERLAP — SKIP
+        if (distSq >= minDistSq) continue;
 
-        const dist   = Math.sqrt(distSq) || 0.0001;
-        const nx     = dx / dist;  // UNIT NORMAL POINTING A → B
-        const ny     = dy / dist;
-
-        // OVERLAP RATIO (0 = JUST TOUCHING, 1 = FULLY COINCIDENT)
+        const dist    = Math.sqrt(distSq) || 0.0001;
+        const nx      = dx / dist;
+        const ny      = dy / dist;
         const overlap = 1 - dist / minDist;
-
         const impulse = overlap * 55 * dt;
 
         a.vx -= nx * impulse;
@@ -162,13 +298,36 @@ export class Aquarium {
   }
 
   // ── DRAW ──────────────────────────────────────────────────────────────────
-  draw(ctx) {
+  draw(ctx, removalMode = false) {
     this.env.drawBackground(ctx);
     this.env.drawLightShafts(ctx);
     this.env.drawSurfaceShimmer(ctx);
     this.env.drawSeaweed(ctx);
     for (const c of this.creatures) {
       c.draw(ctx);
+    }
+    // ── REMOVAL MODE HOVER HIGHLIGHT ─────────────────────────────────────
+    if (removalMode && this.hoveredCreature?.alive) {
+      const c = this.hoveredCreature;
+      const r = c.cfg.SIZE * c.scale * 0.58;
+      const arm = r * 0.38;
+      ctx.save();
+      ctx.shadowBlur  = 18;
+      ctx.shadowColor = 'rgba(255, 60, 60, 0.75)';
+      ctx.strokeStyle = 'rgba(255, 80, 80, 0.88)';
+      ctx.lineWidth   = 2.5;
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, r, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.shadowBlur  = 8;
+      ctx.strokeStyle = 'rgba(255, 110, 110, 0.95)';
+      ctx.lineWidth   = 2;
+      ctx.lineCap     = 'round';
+      ctx.beginPath();
+      ctx.moveTo(c.x - arm, c.y - arm); ctx.lineTo(c.x + arm, c.y + arm);
+      ctx.moveTo(c.x + arm, c.y - arm); ctx.lineTo(c.x - arm, c.y + arm);
+      ctx.stroke();
+      ctx.restore();
     }
     this.env.drawBubbles(ctx);
     this.env.drawVignette(ctx);

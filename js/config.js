@@ -60,8 +60,8 @@ export const HEAD_CONFIGS = [
       TENTACLE_REPEL_RADIUS: 15,
       TENTACLE_REPEL_STRENGTH: 625,
       SIZE: 66,
-      SPLINE_COLOR: '#1c2939',
-      GLOW_COLOR:   '#716085',
+      SPLINE_COLOR: '#646175',
+      GLOW_COLOR:   '#786ec4',
     },
   },
   {

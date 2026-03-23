@@ -1,5 +1,5 @@
 // UI.JS
-// UPDATED: 3.22.26 @ 9:30 AM
+// UPDATED: 3.23.26 @ 1AM
 
 import { HEAD_CONFIGS } from './config.js'; 
 
@@ -8,15 +8,15 @@ const PARAMS = [
   // STRUCTURE
   { key: 'TENTACLE_COUNT',              label: 'Tentacle QTY',    min: 1,    max: 8,    step: 1,    rebuild: true },
   { key: 'TENTACLE_SEGMENTS',           label: 'Segments',        min: 2,    max: 14,   step: 1,    rebuild: true },
-  { key: 'TENTACLE_SEGMENT_LENGTH',     label: 'Seg Length',      min: 3,    max: 70,   step: 0.5,  live: 'segLen' },
-  { key: 'TENTACLE_BASE_WIDTH',         label: 'Base Width',      min: 2,    max: 50,   step: 0.5,  live: 'baseWidth' },
+  { key: 'TENTACLE_SEGMENT_LENGTH',     label: 'Seg Length',      min: 3,    max: 30,   step: 0.5,  live: 'segLen' },
+  { key: 'TENTACLE_BASE_WIDTH',         label: 'Base Width',      min: 2,    max: 30,   step: 0.5,  live: 'baseWidth' },
   // MOTION
   { key: 'TENTACLE_CURL_STRENGTH',      label: 'Curl Strength',   min: 0,    max: 2.0,  step: 0.01, live: 'curlStr' },
   { key: 'TENTACLE_MAX_BEND',           label: 'Max Bend (°)',    min: 10,   max: 180,  step: 1,    special: 'maxBend' },
-  { key: 'TENTACLE_ANCHOR_SWAY',        label: 'Anchor Sway',     min: 0,    max: 30,   step: 0.5,  live: 'anchorSway' },
+  { key: 'TENTACLE_ANCHOR_SWAY',        label: 'Anchor Sway',     min: 0,    max: 20,   step: 0.5,  live: 'anchorSway' },
   // ANCHORING
-  { key: 'TENTACLE_ANCHOR_RADIUS',      label: 'Anchor Radius',   min: 0,    max: 100,  step: 0.5,  live: 'anchorRad' },
-  { key: 'TENTACLE_ANCHOR_Y_OFFSET',    label: 'Anchor Y Offset', min: -30,  max: 80,   step: 0.5,  live: 'anchorYOff' },
+  { key: 'TENTACLE_ANCHOR_RADIUS',      label: 'Anchor Radius',   min: 0,    max: 60,  step: 0.5,  live: 'anchorRad' },
+  { key: 'TENTACLE_ANCHOR_Y_OFFSET',    label: 'Anchor Y Offset', min: -30,  max: 50,   step: 0.5,  live: 'anchorYOff' },
   // TIP PHYSICS
   { key: 'TENTACLE_TIP_GRAVITY',        label: 'Tip Gravity',     min: 0,    max: 250,  step: 1,    live: 'tipGravity' },
   { key: 'TENTACLE_TIP_STIFFNESS',      label: 'Tip Stiffness',   min: 1,    max: 25,   step: 0.5,  live: 'tipStiffness' },
@@ -28,7 +28,7 @@ const PARAMS = [
   { key: 'TENTACLE_REPEL_RADIUS',       label: 'Body Repel Rad',  min: 5,    max: 150,  step: 1,    live: 'repelRadius' },
   { key: 'TENTACLE_REPEL_STRENGTH',     label: 'Body Repel Str',  min: 50,   max: 1000, step: 5,    live: 'repelStr' },
   // VISUAL
-  { key: 'SIZE',                        label: 'Head Size',       min: 30,   max: 200,  step: 1,    visual: true },
+  { key: 'SIZE',                        label: 'Head Size',       min: 30,   max: 150,  step: 1,    visual: true },
 ];
 
 const SECTION_BEFORE = {
@@ -240,7 +240,6 @@ export class TentacleLabUI {
       wrap.dataset.idx = String(i);
       wrap.title       = HEAD_CONFIGS[i].name;
 
-      // Mini canvas — crop one frame from the sprite sheet
       const c   = document.createElement('canvas');
       c.className = 'tlab-head-canvas';
       c.width   = THUMB_W;

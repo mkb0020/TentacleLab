@@ -1,5 +1,5 @@
 // main.js
-// UPDATED: 3.22.26 @ 9:30AM
+// UPDATED: 3.23.26 @ 1am
 
 import { TentacleSystem }   from './tentacles.js';
 import { TentacleLabUI }    from './ui.js';
@@ -18,6 +18,8 @@ const PANEL_W = 350;   // MUST MATCH #tlab-panel WIDTH IN styles.css
 // ── STATE ─────────────────────────────────────────────────────────────────────
 const stateMgr = new StateManager();
 
+// REMOVAL
+let removalMode = false;
 // ── AQUARIUM ──────────────────────────────────────────────────────────────────
 const aquarium = new Aquarium(window.innerWidth, window.innerHeight);
 
@@ -142,6 +144,14 @@ const ui = new TentacleLabUI({
 });
 ui.build();
 
+
+// REMOVAL
+function toggleRemovalMode() {
+  removalMode = !removalMode;
+  aqUI.setRemovalMode(removalMode);
+  canvas.style.cursor = removalMode ? 'crosshair' : '';
+  if (!removalMode) aquarium.hoveredCreature = null;
+}
 // ── UI — AQUARIUM ─────────────────────────────────────────────────────────────
 const aqUI = new AquariumUI({
   onBackToLab:   switchToLab,
@@ -151,7 +161,9 @@ const aqUI = new AquariumUI({
       showToast(blockedMessage(result.reason), true);
     }
     syncCapacityUI();
+    
   },
+  onRemoveCreature: toggleRemovalMode,
 });
 aqUI.build();
 
@@ -166,6 +178,7 @@ function switchToAquarium() {
 }
 
 function switchToLab() {
+  if (removalMode) { removalMode = false; aqUI.setRemovalMode(false); aquarium.hoveredCreature = null; }
   stateMgr.setMode('LAB');
   document.getElementById('tlab-panel')?.classList.remove('hidden');
   document.getElementById('tlab-left-panel')?.classList.remove('hidden');
@@ -212,7 +225,20 @@ canvas.addEventListener('pointerdown', e => {
   }
 });
 
+canvas.addEventListener('click', e => {
+  if (!stateMgr.isAquarium || !removalMode) return;
+  const { x, y } = clientToCanvas(e);
+  const removed = aquarium.removeCreatureAt(x, y);
+  if (removed) syncCapacityUI();
+});
+
 canvas.addEventListener('pointermove', e => {
+    if (stateMgr.isAquarium && removalMode) {
+    const { x, y } = clientToCanvas(e);
+    aquarium.hoveredCreature = aquarium.getCreatureAt(x, y);
+    canvas.style.cursor = aquarium.hoveredCreature ? 'pointer' : 'crosshair';
+    return;
+  }
   if (!dragging) return;
   const { x, y } = clientToCanvas(e);
   const margin   = CFG.SIZE * 0.5;
@@ -338,7 +364,8 @@ function tick(now) {
   } else {
     // ── AQUARIUM MODE ─────────────────────────────────────────────────────
     aquarium.update(dt, time);
-    aquarium.draw(ctx);
+    aquarium.draw(ctx, removalMode);
+
     syncCapacityUI();
   }
 }
