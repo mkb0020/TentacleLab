@@ -2,7 +2,7 @@
 // UPDATED 3.27.26 @ 12:30am
 
 const AMBIENT_SRC  = 'public/audio/ambience.m4a';
-const LOOP_COUNT   = 9;
+const LOOP_COUNT   = 11;
 const LOOP_SRCS    = Array.from({ length: LOOP_COUNT }, (_, i) =>
   `public/audio/loop${String(i).padStart(2, '0')}.m4a`
 );
