@@ -1,13 +1,14 @@
 // main.js
-// UPDATED: 3.23.26 @ 1am
+// UPDATED: 3.27.26 @12:30AM
 
-import { TentacleSystem }   from './tentacles.js';
-import { TentacleLabUI }    from './ui.js';
-import { AudioSystem }      from './audio.js';
-import { StateManager }     from './stateManager.js';
-import { Aquarium }         from './aquarium.js';
-import { AquariumUI }       from './aquariumUI.js';
-import { CFG, DEFAULTS, HEAD_CONFIGS } from './config.js';
+import { TentacleSystem }                  from './tentacles.js';
+import { TentacleLabUI }                   from './ui.js';
+import { AudioSystem }                     from './audio.js';
+import { StateManager }                    from './stateManager.js';
+import { Aquarium }                        from './aquarium.js';
+import { AquariumUI }                      from './aquariumUI.js';
+import { CFG, DEFAULTS, HEAD_CONFIGS }     from './config.js';
+import { MobileSheet, isMobile }           from './mobileUI.js';  // MOBILE
 
 // ── CANVAS SETUP ─────────────────────────────────────────────────────────────
 const canvas = document.getElementById('canvas');
@@ -20,6 +21,7 @@ const stateMgr = new StateManager();
 
 // REMOVAL
 let removalMode = false;
+
 // ── AQUARIUM ──────────────────────────────────────────────────────────────────
 const aquarium = new Aquarium(window.innerWidth, window.innerHeight);
 
@@ -33,7 +35,7 @@ const labCreature = {
 const systemRef = { current: null };
 
 function labPlayW() {
-  return canvas.width - PANEL_W;
+  return isMobile() ? canvas.width : canvas.width - PANEL_W;
 }
 
 function rebuildSystem() {
@@ -55,20 +57,14 @@ let headImg = null;
 
 function loadCustomHead(img) { headImg = img; }
 
-// SPRITE SHEET — LOADED ONCE; INDIVIDUAL FRAMES CROPPED ON DEMAND
 const headsSheet = new Image();
 headsSheet.src = 'public/images/heads.png';
 headsSheet.onload = () => {
   ui.setHeadsImage(headsSheet);
-  selectHead(0);  // APPLY FIRST PRESET + SHOW FIRST FRAME ON BOOT
+  selectHead(0);
 };
 headsSheet.onerror = () => console.warn('[Fiat Tentacula] heads.png not found');
 
-/**
- * CROP FRAME `INDEX` FROM THE SPRITE SHEET, APPLY ITS PRESET CONFIG,
- * AND SYNC THE UI SLIDERS.
- * @param {number} index
- */
 function selectHead(index) {
   if (!headsSheet.complete || !headsSheet.naturalWidth) return;
 
@@ -86,10 +82,9 @@ function selectHead(index) {
   img.src    = crop.toDataURL();
 
   Object.assign(CFG, DEFAULTS, HEAD_CONFIGS[index].cfg);
-  ui.syncToConfig();   
+  ui.syncToConfig();
   rebuildSystem();
 }
-
 
 // ── AUDIO ─────────────────────────────────────────────────────────────────────
 const audio = new AudioSystem();
@@ -113,11 +108,35 @@ function syncCapacityUI() {
   const full  = !aquarium.canAdd(CFG).ok;
   aqUI.setCapacity(ratio, full);
   aqUI.setCount(aquarium.count);
+  if (mobileSheet.active) {
+    mobileSheet.setCount(aquarium.count);
+    mobileSheet.setCapacity(ratio, full);
+  }
 }
 
 function blockedMessage(reason) {
   if (reason === 'count') return '🚫 Tank full — max creatures reached!';
   return '🚫 Tank at capacity — too many segments! Try a simpler creature.';
+}
+
+// ── NAMED ACTION FUNCTIONS ────────────────────────────────────────────────────
+
+function releaseCreature() {
+  const result = aquarium.addCreature(CFG, headImg);
+  if (!result.added) {
+    showToast(blockedMessage(result.reason), true);
+    return;
+  }
+  switchToAquarium();
+  syncCapacityUI();
+}
+
+function addCreatureToTank() {
+  const result = aquarium.addCreature(CFG, headImg);
+  if (!result.added) {
+    showToast(blockedMessage(result.reason), true);
+  }
+  syncCapacityUI();
 }
 
 // ── UI — LAB ──────────────────────────────────────────────────────────────────
@@ -129,21 +148,14 @@ const ui = new TentacleLabUI({
   onRebuild:  rebuildSystem,
   onHeadLoad: loadCustomHead,
   audio,
-  onHeadSelect: selectHead, 
-
-  // V2: RELEASE TO AQUARIUM
+  onHeadSelect: selectHead,
   onRelease: () => {
-    const result = aquarium.addCreature(CFG, headImg);
-    if (!result.added) {
-      showToast(blockedMessage(result.reason), true);
-      return;
-    }
-    switchToAquarium();
-    syncCapacityUI();
+    audio.ensureInit();
+    audio.playSquish(performance.now() - 9999);
+    releaseCreature();
   },
 });
 ui.build();
-
 
 // REMOVAL
 function toggleRemovalMode() {
@@ -151,21 +163,25 @@ function toggleRemovalMode() {
   aqUI.setRemovalMode(removalMode);
   canvas.style.cursor = removalMode ? 'crosshair' : '';
   if (!removalMode) aquarium.hoveredCreature = null;
+  if (mobileSheet.active) mobileSheet.setRemovalMode(removalMode);
 }
+
 // ── UI — AQUARIUM ─────────────────────────────────────────────────────────────
 const aqUI = new AquariumUI({
   onBackToLab:   switchToLab,
-  onAddCreature: () => {
-    const result = aquarium.addCreature(CFG, headImg);
-    if (!result.added) {
-      showToast(blockedMessage(result.reason), true);
-    }
-    syncCapacityUI();
-    
-  },
+  onAddCreature: addCreatureToTank,
   onRemoveCreature: toggleRemovalMode,
 });
 aqUI.build();
+
+// ── MOBILE SHEET ──────────────────────────────────────────────────────────────
+const mobileSheet = new MobileSheet({
+  onRelease:        releaseCreature,
+  onAddCreature:    addCreatureToTank,
+  onRemoveCreature: toggleRemovalMode,
+  onBackToLab:      switchToLab,
+});
+mobileSheet.init();
 
 // ── MODE SWITCHES ─────────────────────────────────────────────────────────────
 function switchToAquarium() {
@@ -175,6 +191,7 @@ function switchToAquarium() {
   document.getElementById('tlab-open-left')?.classList.add('hidden');
   document.getElementById('tlab-open-right')?.classList.add('hidden');
   aqUI.show();
+  if (mobileSheet.active) mobileSheet.setMode('AQUARIUM');
 }
 
 function switchToLab() {
@@ -185,6 +202,7 @@ function switchToLab() {
   const updateToggles = ui._updateToggleButtons?.bind(ui);
   if (updateToggles) updateToggles();
   aqUI.hide();
+  if (mobileSheet.active) mobileSheet.setMode('LAB');
 }
 
 // ── DRAG (LAB MODE ONLY) ──────────────────────────────────────────────────────
@@ -213,7 +231,7 @@ canvas.addEventListener('pointerdown', e => {
   if (stateMgr.isAquarium) return;
   audio.ensureInit();
   const { x, y } = clientToCanvas(e);
-  if (x >= labPlayW()) return;
+  if (!isMobile() && x >= labPlayW()) return;
   if (hitTestCreature(x, y)) {
     dragging   = true;
     hasDragged = true;
@@ -233,7 +251,7 @@ canvas.addEventListener('click', e => {
 });
 
 canvas.addEventListener('pointermove', e => {
-    if (stateMgr.isAquarium && removalMode) {
+  if (stateMgr.isAquarium && removalMode) {
     const { x, y } = clientToCanvas(e);
     aquarium.hoveredCreature = aquarium.getCreatureAt(x, y);
     canvas.style.cursor = aquarium.hoveredCreature ? 'pointer' : 'crosshair';
@@ -346,7 +364,6 @@ function tick(now) {
   const H = canvas.height;
 
   if (stateMgr.isLab) {
-    // ── LAB MODE ──────────────────────────────────────────────────────────
     const PW = labPlayW();
     labCreature.x = Math.min(labCreature.x, PW - CFG.SIZE / 2);
 
@@ -362,7 +379,6 @@ function tick(now) {
     drawHUD(W, H);
 
   } else {
-    // ── AQUARIUM MODE ─────────────────────────────────────────────────────
     aquarium.update(dt, time);
     aquarium.draw(ctx, removalMode);
 

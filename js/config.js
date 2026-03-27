@@ -1,5 +1,5 @@
 // config.js
-// UPDATED 3.23.26 @ 3:30am
+// UPDATED 3.27.26 @ 12:30am
 
 export const CFG = {
   // ── STRUCTURE ────────────────────────────────────────
@@ -114,6 +114,31 @@ export const HEAD_CONFIGS = [
       SIZE: 57,
       SPLINE_COLOR: '#4d0f00',
       GLOW_COLOR:   '#ff0000',
+    },
+  },
+    {
+    name: 'Pusillus anxius', // NAME NOT FINALIZED - ONCE traits.js IS COMPLETED, NAMES WILL BE REVISED TO MATCH THEIR TRAITS: Pusillus anxius = small + anxious 
+    cfg: {
+      TENTACLE_COUNT: 3,
+      TENTACLE_SEGMENTS: 8,
+      TENTACLE_SEGMENT_LENGTH: 9.50,
+      TENTACLE_BASE_WIDTH: 3.50,
+      TENTACLE_CURL_STRENGTH: 0.21,
+      TENTACLE_MAX_BEND: Math.PI * 0.389,  // ~70°
+      TENTACLE_ANCHOR_SWAY: 0.50,
+      TENTACLE_ANCHOR_RADIUS: 8.50,
+      TENTACLE_ANCHOR_Y_OFFSET: 16.50,
+      TENTACLE_TIP_GRAVITY: 33,
+      TENTACLE_TIP_STIFFNESS: 6.50,
+      TENTACLE_TIP_DRAG: 0.94,
+      TENTACLE_TIP_BIAS: 45,
+      TENTACLE_TIP_REPEL_RADIUS: 25,
+      TENTACLE_TIP_REPEL_STRENGTH: 195,
+      TENTACLE_REPEL_RADIUS: 15,
+      TENTACLE_REPEL_STRENGTH: 965,
+      SIZE: 59,
+      SPLINE_COLOR: '#670184',
+      GLOW_COLOR:   '#9a6dee',
     },
   },
 ];

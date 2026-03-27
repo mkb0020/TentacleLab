@@ -1,4 +1,4 @@
-/* Updated 3.23.26 @ 1:30AM*/
+/* Updated 3.27.26 @ 12:30AM*/
 
 :root {
   --BosonBlue: #170032;
@@ -512,6 +512,379 @@
 }
 
 
+
+
+/*MOBILE BOTTOM SHEET*/
+.mobile-hidden {
+  display: none !important;
+}
+
+#ms-sheet {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 75vh;
+  max-height: 640px;
+
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 10002;
+
+  /* MATCH PANEL GLASSMORPHISM — SLIGHTLY DENSER FOR LEGIBILITY ON SMALL SCREENS */
+  background:
+    linear-gradient(
+      160deg,
+      rgba(14, 0, 36, 0.96) 0%,
+      rgba(37, 2, 66, 0.94) 55%,
+      rgba(0, 28, 44, 0.93) 100%
+    );
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+
+  border-top:   1px solid rgba(0, 255, 255, 0.20);
+  border-left:  1px solid rgba(0, 255, 255, 0.08);
+  border-right: 1px solid rgba(0, 255, 255, 0.08);
+  border-radius: 22px 22px 0 0;
+
+  box-shadow:
+    0 -10px 48px -8px rgba(0, 0, 0, 0.65),
+    0 -1px  0     0   rgba(0, 255, 255, 0.12),
+    inset 0 1px 0 rgba(0, 255, 255, 0.18);
+
+  font-family: 'SpaceLetters', monospace;
+  color: var(--BohrsBabyBlue);
+  user-select: none;
+  will-change: transform;
+
+  /* DEFAULT: HIDDEN BELOW VIEWPORT */
+  transform: translateY(9999px);
+}
+
+/* ── DRAG HANDLE ──────────────────────────────────────────────────────────── */
+.ms-handle {
+  flex-shrink: 0;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  cursor: grab;
+  position: relative;
+  border-bottom: 1px solid rgba(0, 255, 255, 0.07);
+}
+
+.ms-handle:active { cursor: grabbing; }
+
+.ms-pip {
+  width: 38px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(0, 255, 255, 0.28);
+  transition: background 0.2s;
+}
+
+.ms-handle:hover .ms-pip { background: rgba(0, 255, 255, 0.52); }
+
+.ms-mode-label {
+  position: absolute;
+  right: 14px;
+  font-size: 0.55rem;
+  letter-spacing: 2.5px;
+  color: rgba(0, 255, 255, 0.32);
+  pointer-events: none;
+}
+
+/* ── SECTION VISIBILITY ───────────────────────────────────────────────────── */
+.ms-section {
+  display: none;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.ms-section.active { display: flex; }
+
+/* ── LAB SECTION ──────────────────────────────────────────────────────────── */
+
+/* TAB BAR  */
+.ms-tab-bar {
+  flex-shrink: 0;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  border-bottom: 1px solid rgba(0, 255, 255, 0.07);
+}
+
+.ms-tab {
+  background: transparent;
+  border: 1px solid rgba(0, 255, 255, 0.15);
+  color: var(--BohrsBabyBlue);
+  font-family: 'SpaceLetters', monospace;
+  font-size: 0.60rem;
+  letter-spacing: 1px;
+  padding: 3px 11px;
+  border-radius: 50px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.ms-tab.active {
+  background: rgba(0, 255, 255, 0.10);
+  border-color: var(--AquaAura);
+  color: var(--AquaAura);
+  box-shadow: 0 0 8px rgba(0, 255, 255, 0.15);
+}
+
+.ms-release-btn {
+  margin-left: auto;
+  flex-shrink: 0;
+  background: rgba(0, 255, 200, 0.06);
+  border: 1px solid rgba(103, 254, 189, 0.35);
+  color: var(--AlphaAqua);
+  font-family: 'SpaceLetters', monospace;
+  font-size: 0.60rem;
+  letter-spacing: 1px;
+  padding: 4px 13px;
+  border-radius: 50px;
+  cursor: pointer;
+  transition: all 0.18s;
+  text-transform: uppercase;
+  position: relative;
+  overflow: hidden;
+}
+
+.ms-release-btn::before {
+  content: '';
+  position: absolute;
+  top: 0; left: -110%;
+  width: 55%; height: 100%;
+  background: linear-gradient(110deg, transparent 0%, rgba(103, 254, 189, 0.5) 50%, transparent 100%);
+  transform: skewX(-18deg);
+  animation: releaseShimmer 3.5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.ms-release-btn:hover {
+  background: rgba(0, 255, 200, 0.18);
+  border-color: var(--AquaAura);
+  color: #fff;
+}
+
+/* PANELS */
+.ms-panels {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.ms-panel {
+  display: none;
+  height: 100%;
+  overflow: hidden;
+  flex-direction: column;
+}
+
+.ms-panel.active { display: flex; }
+
+.ms-scroll {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding: 6px 10px 80px;
+}
+
+.ms-scroll::-webkit-scrollbar { width: 2px; }
+.ms-scroll::-webkit-scrollbar-track { background: transparent; }
+.ms-scroll::-webkit-scrollbar-thumb { background: rgba(100, 70, 200, 0.35); border-radius: 1px; }
+
+/* OVERRIDE DESKTOP OVERFLOW/HEIGHT ON MOVED ELEMENTS SO ms-scroll CONTROLS SCROLL */
+#ms-sheet #tlab-sliders {
+  overflow: visible !important;
+  height: auto !important;
+  flex: none !important;
+  padding: 0;
+}
+
+#ms-sheet #tlab-left-content,
+#ms-sheet #tlab-audio-row,
+#ms-sheet #tlab-head-selector,
+#ms-sheet #tlab-colors,
+#ms-sheet #tlab-buttons {
+  overflow: visible !important;
+  height: auto !important;
+  flex: none !important;
+}
+
+/* NUDGE STUDIO ELEMENTS TO FEEL AT HOME IN THE SHEET */
+#ms-sheet #tlab-audio-row     { border-radius: 14px; margin: 8px 2px 12px; }
+#ms-sheet #tlab-head-selector { border-radius: 14px; margin: 0 2px 12px;   }
+#ms-sheet #tlab-colors        { border-radius: 14px; margin: 0 2px 12px;   }
+#ms-sheet #tlab-buttons       { border-radius: 14px; margin: 0 2px 0;      }
+
+/* ── AQUARIUM SECTION ─────────────────────────────────────────────────────── */
+
+/* AQ PEEK BAR (36px — same height as lab tab bar) */
+.ms-aq-bar {
+  flex-shrink: 0;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  border-bottom: 1px solid rgba(0, 255, 255, 0.07);
+  cursor: pointer;
+}
+
+.ms-aq-count {
+  color: var(--AlphaAqua);
+  font-size: 0.75rem;
+  letter-spacing: 1px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.ms-aq-cap-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.ms-aq-cap-outer {
+  flex: 1;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(0, 255, 255, 0.10);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.ms-aq-cap-fill {
+  height: 100%;
+  background: var(--AlphaAqua);
+  border-radius: 2px;
+  width: 0%;
+  transition: width 0.45s ease, background 0.45s ease, box-shadow 0.45s ease;
+}
+
+.ms-aq-cap-label {
+  font-size: 0.58rem;
+  color: var(--AlphaAqua);
+  min-width: 26px;
+  flex-shrink: 0;
+  transition: color 0.45s ease;
+}
+
+/* COMPACT BACK BUTTON IN PEEK BAR */
+.ms-aq-btn {
+  background: transparent;
+  border: 1px solid rgba(165, 90, 255, 0.30);
+  color: var(--PlasmaPurple);
+  font-family: 'SpaceLetters', monospace;
+  font-size: 0.58rem;
+  letter-spacing: 1px;
+  padding: 3px 10px;
+  border-radius: 50px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-transform: uppercase;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.ms-aq-btn:hover {
+  background: rgba(165, 90, 255, 0.12);
+  border-color: var(--VortexViolet);
+  color: #fff;
+}
+
+/* AQ EXPANDED BODY — ACTION BUTTONS */
+.ms-aq-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 14px 80px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.ms-aq-action {
+  background: transparent;
+  font-family: 'SpaceLetters', monospace;
+  font-size: 0.70rem;
+  letter-spacing: 1.5px;
+  padding: 16px 14px;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.18s;
+  text-transform: uppercase;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.ms-aq-action::before {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%;
+  width: 50%; height: 100%;
+  background: linear-gradient(120deg, transparent 0%, rgba(180, 140, 255, 0.4) 50%, transparent 100%);
+  transform: skewX(-18deg);
+  transition: left 0.5s ease;
+  pointer-events: none;
+}
+
+.ms-aq-action:hover::before { left: 130%; }
+
+.ms-aq-add {
+  border: 1px solid rgba(103, 254, 189, 0.30);
+  color: var(--AlphaAqua);
+}
+.ms-aq-add:hover {
+  background: rgba(103, 254, 189, 0.10);
+  border-color: var(--AlphaAqua);
+  color: #fff;
+}
+
+.ms-aq-remove {
+  border: 1px solid rgba(220, 76, 232, 0.30);
+  color: var(--NuclearFuscia);
+}
+.ms-aq-remove:hover {
+  background: rgba(220, 76, 232, 0.10);
+  border-color: var(--NuclearFuscia);
+  color: #fff;
+}
+.ms-aq-remove.active {
+  background: rgba(220, 60, 60, 0.18);
+  border-color: rgba(255, 80, 80, 0.70);
+  color: #ff8080;
+  animation: capPulse 1.4s ease-in-out infinite;
+}
+
+.ms-aq-back-lg {
+  border: 1px solid rgba(165, 90, 255, 0.25);
+  color: var(--PlasmaPurple);
+  margin-top: auto;
+}
+.ms-aq-back-lg:hover {
+  background: rgba(165, 90, 255, 0.10);
+  border-color: var(--VortexViolet);
+  color: #fff;
+}
+
+
 /* ── AQUARIUM HUD ─────────────────────────────────────────────────────────── */
 #tlab-aquarium-hud {
   position: fixed;
@@ -771,3 +1144,79 @@
 .tlab-head-thumb.selected .tlab-head-name {
   color: var(--AquaAura);
 }
+
+
+/* ===================== MOBILE BOTTOM SHEET ===================== */
+#tlab-mobile-fab {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10002;
+  background: rgba(0, 255, 255, 0.18);
+  border: 2px solid var(--AlphaAqua);
+  color: var(--AlphaAqua);
+  font-family: 'SpaceLetters', monospace;
+  font-size: 1.1rem;
+  padding: 14px 28px;
+  border-radius: 9999px;
+  box-shadow: 0 12px 40px rgba(103, 254, 189, 0.4);
+  display: none;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s ease;
+}
+
+#tlab-mobile-fab:hover {
+  background: rgba(103, 254, 189, 0.25);
+  transform: translateX(-50%) scale(1.05);
+}
+
+@media (max-width: 768px) {
+  #tlab-mobile-fab { display: flex; }
+  #tlab-panel,
+  #tlab-left-panel,
+  #tlab-open-left,
+  #tlab-open-right { display: none !important; }
+}
+
+/* Bottom sheet */
+#tlab-mobile-sheet {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  max-height: 88vh;
+  background: linear-gradient(135deg, rgba(23,0,50,0.95), rgba(55,2,90,0.92));
+  backdrop-filter: blur(20px);
+  border-top-left-radius: 28px;
+  border-top-right-radius: 28px;
+  box-shadow: 0 -20px 60px -20px rgba(0,255,255,0.6);
+  transform: translateY(100%);
+  transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
+  z-index: 10001;
+  overflow: hidden;
+  display: none;
+}
+
+#tlab-mobile-sheet.open {
+  transform: translateY(0);
+  display: block;
+}
+
+#tlab-sheet-handle {
+  width: 48px; height: 6px;
+  background: rgba(0,255,255,0.6);
+  border-radius: 9999px;
+  margin: 12px auto 8px;
+  cursor: grab;
+}
+
+#tlab-sheet-content {
+  padding: 0 16px 24px;
+  max-height: calc(88vh - 60px);
+  overflow-y: auto;
+}
+
+#tlab-sheet-content::-webkit-scrollbar { width: 4px; }
+#tlab-sheet-content::-webkit-scrollbar-thumb { background: var(--AlphaAqua); border-radius: 2px; }
