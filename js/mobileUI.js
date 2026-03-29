@@ -1,6 +1,6 @@
 
 // mobileUI.js
-// // UPDATED: 3.27.26 @ 12:45am
+// // UPDATED: 3.29.26 @ 7am
 
 // ── CONSTANTS ─────────────────────────────────────────────────────────────────
 const PEEK_H     = 72;    // PX — VISIBLE HEIGHT WHEN COLLAPSED (HANDLE + TAB/AQ BAR)
@@ -23,8 +23,8 @@ export class MobileSheet {
    * @param {Function} opts.onRemoveCreature  AQ  → TOGGLE REMOVAL MODE
    * @param {Function} opts.onBackToLab       AQ  → RETURN TO LAB
    */
-  constructor({ onRelease, onAddCreature, onRemoveCreature, onBackToLab }) {
-    this._cb = { onRelease, onAddCreature, onRemoveCreature, onBackToLab };
+  constructor({ onRelease, onAddCreature, onRemoveCreature, onBackToLab, onFeed }) {
+    this._cb = { onRelease, onAddCreature, onRemoveCreature, onBackToLab, onFeed };
 
     this._active   = false;
     this._sheet    = null;
@@ -42,6 +42,8 @@ export class MobileSheet {
     this._lastT     = 0;
     this._velY      = 0;
     this._expandH   = 0;  // COMPUTED FROM ELEMENT HEIGHT
+
+    
   }
 
   get active() { return this._active; }
@@ -111,6 +113,7 @@ export class MobileSheet {
 
         <div class="ms-aq-body">
           <button id="ms-aq-add"    class="ms-aq-action ms-aq-add">+ Add to Tank</button>
+          <button id="ms-aq-feed"   class="ms-aq-action ms-aq-feed">🍤 Feed</button>
           <button id="ms-aq-remove" class="ms-aq-action ms-aq-remove">− Remove</button>
           <button id="ms-aq-back2"  class="ms-aq-action ms-aq-back-lg">← Back to Lab</button>
         </div>
@@ -174,6 +177,7 @@ export class MobileSheet {
     document.getElementById('ms-aq-back2')?.addEventListener('click',    () => this._cb.onBackToLab?.());
     document.getElementById('ms-aq-add')?.addEventListener('click',      () => this._cb.onAddCreature?.());
     document.getElementById('ms-aq-remove')?.addEventListener('click',   () => this._cb.onRemoveCreature?.());
+    document.getElementById('ms-aq-feed')?.addEventListener('click', () => this._cb.onFeed?.());
 
     // HANDLE TAP — TOGGLE (but not on child buttons/inputs)
     document.getElementById('ms-handle')?.addEventListener('click', e => {
@@ -244,6 +248,14 @@ export class MobileSheet {
     if (btn) {
       btn.classList.toggle('active', active);
       btn.textContent = active ? '✕ Cancel Remove' : '− Remove';
+    }
+  }
+
+  setFeedMode(active) {
+    const btn = document.getElementById('ms-aq-feed');
+    if (btn) {
+      btn.classList.toggle('active', active);
+      btn.textContent = active ? '✕ Stop Feeding' : '🍤 Feed';
     }
   }
 

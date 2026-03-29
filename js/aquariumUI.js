@@ -1,22 +1,24 @@
 // AQUARIUMUI.JS
-// UPDATED: 3.23.26 @ 1am
+// UPDATED: 3.29.26 @ 7am
 export class AquariumUI {
   /**
    * @param {object} opts
    * @param {() => void}  opts.onBackToLab    
    * @param {() => void}  opts.onAddCreature  
    */
-  constructor({ onBackToLab, onAddCreature, onRemoveCreature, }) {
-    this._onBackToLab    = onBackToLab;
-    this._onAddCreature  = onAddCreature;
-    this._onRemoveCreature  = onRemoveCreature;  
-    this._hud            = null;
-    this._countEl        = null;
-    this._capFillEl      = null;
-    this._capLabelEl     = null;
-    this._addBtn         = null;
-    this._removeBtn         = null;  
-  }
+    constructor({ onBackToLab, onAddCreature, onRemoveCreature, onFeedToggle }) {
+      this._onBackToLab    = onBackToLab;
+      this._onAddCreature  = onAddCreature;
+      this._onRemoveCreature = onRemoveCreature;
+      this._onFeedToggle   = onFeedToggle;   
+      this._hud            = null;
+      this._countEl        = null;
+      this._capFillEl      = null;
+      this._capLabelEl     = null;
+      this._addBtn         = null;
+      this._removeBtn      = null;
+      this._feedBtn        = null;           
+    }
 
   // ── BUILD ─────────────────────────────────────────────────────────────────
   build() {
@@ -33,6 +35,7 @@ export class AquariumUI {
       <span   id="aq-cap-label" class="aq-cap-label">0%</span>
       <button id="aq-add-btn"   class="aq-btn aq-add">+ Add to Tank</button>
       <button id="aq-remove-btn"   class="aq-btn aq-remove">- Remove</button> 
+      <button id="aq-feed-btn"  class="aq-btn aq-feed">🍤 Feed</button>
     `;
     document.body.appendChild(hud);
 
@@ -42,6 +45,8 @@ export class AquariumUI {
     this._capLabelEl = hud.querySelector('#aq-cap-label');
     this._addBtn     = hud.querySelector('#aq-add-btn');
     this._removeBtn  = hud.querySelector('#aq-remove-btn');  
+    this._feedBtn = hud.querySelector('#aq-feed-btn');
+    hud.querySelector('#aq-feed-btn').addEventListener('click', () => this._onFeedToggle?.());
 
     hud.querySelector('#aq-back-btn').addEventListener('click', () => this._onBackToLab());
     this._addBtn.addEventListener('click', () => this._onAddCreature());
@@ -98,4 +103,10 @@ export class AquariumUI {
   this._removeBtn.classList.toggle('active', active);
   this._removeBtn.textContent = active ? '✕ Cancel Remove' : '− Remove';
 }
+
+setFeedMode(active) {
+    if (!this._feedBtn) return;
+    this._feedBtn.classList.toggle('active', active);
+    this._feedBtn.textContent = active ? '✕ Stop Feeding' : '🍤 Feed';
+  }
 }

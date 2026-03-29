@@ -1,10 +1,11 @@
 // AQUARIUM.JS
-// UPDATED: 3.23.26 @ 1AM
+// UPDATED: 3.29.26 @ 8:30AM
 
 import { Creature }                              from './creature.js';
 import { Environment }                           from './environment.js';
 import { TANK }                                  from './config.js';
 import { lengthPreferenceScore, configSimilarity } from './traits.js';
+import { FoodSystem, EAT_RADIUS }                from './food.js';
 
 // ── BEHAVIOR CONSTANTS ────────────────────────────────────────────────────────
 // HOW FAR A CREATURE CAN "SENSE" OTHERS (PX).
@@ -13,10 +14,13 @@ const SENSE_RADIUS    = 240;
 const SENSE_RADIUS_SQ = SENSE_RADIUS * SENSE_RADIUS;
 
 // MAX STEERING FORCE APPLIED PER FRAME (KEEPS THINGS FLOATY, NOT SNAPPY)
-const MAX_STEER       = 1.2;
+const MAX_STEER       = 2.2;
 
 // HOW STRONGLY SOCIAL FORCES COMPETE WITH THE WANDER DRIVE
-const SOCIAL_WEIGHT   = 0.45;
+const SOCIAL_WEIGHT   = 0.65;
+
+
+
 
 export class Aquarium {
   /**
@@ -29,6 +33,8 @@ export class Aquarium {
     this.creatures = [];
     this.env       = new Environment(w, h);
     this.hoveredCreature = null;
+    this.foodSystem = new FoodSystem();  
+    this._onEat     = null; 
   }
 
   // ── LIFECYCLE ────────────────────────────────────────────────────────────
@@ -119,6 +125,7 @@ getCreatureAt(x, y) {
    */
   update(dt, time) {
     this.env.update(dt);
+    this.foodSystem.update(dt, time, this.w, this.h);
 
     const bounds = { w: this.w, h: this.h };
 
@@ -174,7 +181,7 @@ getCreatureAt(x, y) {
         const nx   = dx / dist;   // UNIT VECTOR POINTING A → B
         const ny   = dy / dist;
 
-        // PROXIMITY falloff: 1.0 when touching, 0.0 at SENSE_RADIUS
+        // PROXIMITY falloff: 1.0 WHEN TOUCHING, 0.0 at SENSE_RADIUS
         const proximity = 1 - dist / SENSE_RADIUS;
 
         // ── 1. PERSONAL SPACE ───────────────────────────────────────────
@@ -225,6 +232,42 @@ getCreatureAt(x, y) {
           steerY += ny * attrScore * proximity * 0.5;
         }
       }
+
+// ── FOOD SEEKING ──────────────────────────────────────────────────────
+if (a.hunger > 0.3) {
+  const senseR = 100 + a.traits.foodDrive * 120;
+  const result = this.foodSystem.getNearestParticle(a.x, a.y, senseR);
+  if (result) {
+    const { particle, dist } = result;
+    if (dist < EAT_RADIUS) {
+      // CLOSE ENOUGH — EAT IT
+      this.foodSystem.eat(particle);
+      a.hunger = Math.max(0, a.hunger - 0.30);
+      this._onEat?.();
+    } else {
+      const fdx     = particle.x - a.x;
+      const fdy     = particle.y - a.y;
+      const fnx     = fdx / dist;
+      const fny     = fdy / dist;
+      const urgency = a.hunger * (0.8 + a.traits.foodDrive * 0.8);
+      const falloff = Math.max(0, 1 - dist / senseR);
+
+      // REDIRECT WANDER ANGLE SO LOCOMOTION COOPERATES WITH FOOD SEEKING.
+      // THIS IS THE KEY FIX — WITHOUT THIS, WANDER FIGHTS EVERY NUDGE.
+      const targetAng = Math.atan2(fdy, fdx);
+      let angDiff = targetAng - a._wAngle;
+      if (angDiff >  Math.PI) angDiff -= Math.PI * 2;
+      if (angDiff < -Math.PI) angDiff += Math.PI * 2;
+      a._wAngle += angDiff * urgency * falloff * 0.25;
+
+      // DIRECT VELOCITY BOOST — BYPASSES SOCIAL CAP SO HUNGER IS ACTUALLY FELT.
+      // SCALES WITH CREATURE'S OWN WANDER SPEED SO FAST CREATURES CHASE HARDER.
+      const boost = urgency * falloff * a.traits.wanderSpeed * 0.8;
+      a.vx += fnx * boost * dt;
+      a.vy += fny * boost * dt;
+    }
+  }
+}
 
       // ── APPLY STEERING ─────────────────────────────────────────────────
       const mag = Math.hypot(steerX, steerY);
@@ -306,6 +349,7 @@ getCreatureAt(x, y) {
     for (const c of this.creatures) {
       c.draw(ctx);
     }
+    this.foodSystem.draw(ctx);
     // ── REMOVAL MODE HOVER HIGHLIGHT ─────────────────────────────────────
     if (removalMode && this.hoveredCreature?.alive) {
       const c = this.hoveredCreature;

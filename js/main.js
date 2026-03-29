@@ -1,5 +1,5 @@
 // main.js
-// UPDATED: 3.27.26 @12:30AM
+// UPDATED: 3.29.26 @ 7AM
 
 import { TentacleSystem }                  from './tentacles.js';
 import { TentacleLabUI }                   from './ui.js';
@@ -21,6 +21,8 @@ const stateMgr = new StateManager();
 
 // REMOVAL
 let removalMode = false;
+
+let feedMode    = false;
 
 // ── AQUARIUM ──────────────────────────────────────────────────────────────────
 const aquarium = new Aquarium(window.innerWidth, window.innerHeight);
@@ -88,6 +90,8 @@ function selectHead(index) {
 
 // ── AUDIO ─────────────────────────────────────────────────────────────────────
 const audio = new AudioSystem();
+
+aquarium._onEat = () => audio.playSquish();
 
 // ── TOAST ─────────────────────────────────────────────────────────────────────
 function showToast(msg, isError = false) {
@@ -166,11 +170,26 @@ function toggleRemovalMode() {
   if (mobileSheet.active) mobileSheet.setRemovalMode(removalMode);
 }
 
+function toggleFeedMode() {
+  feedMode = !feedMode;
+  // MUTUALLY EXCLUSIVE WITH REMOVAL MODE
+  if (feedMode && removalMode) {
+    removalMode = false;
+    aqUI.setRemovalMode(false);
+    aquarium.hoveredCreature = null;
+    if (mobileSheet.active) mobileSheet.setRemovalMode(false);
+  }
+  aqUI.setFeedMode(feedMode);
+  canvas.style.cursor = feedMode ? 'cell' : '';
+  if (mobileSheet.active) mobileSheet.setFeedMode(feedMode);
+}
+
 // ── UI — AQUARIUM ─────────────────────────────────────────────────────────────
 const aqUI = new AquariumUI({
   onBackToLab:   switchToLab,
   onAddCreature: addCreatureToTank,
   onRemoveCreature: toggleRemovalMode,
+  onFeedToggle:     toggleFeedMode,
 });
 aqUI.build();
 
@@ -179,6 +198,7 @@ const mobileSheet = new MobileSheet({
   onRelease:        releaseCreature,
   onAddCreature:    addCreatureToTank,
   onRemoveCreature: toggleRemovalMode,
+  onFeed:           toggleFeedMode,
   onBackToLab:      switchToLab,
 });
 mobileSheet.init();
@@ -196,6 +216,7 @@ function switchToAquarium() {
 
 function switchToLab() {
   if (removalMode) { removalMode = false; aqUI.setRemovalMode(false); aquarium.hoveredCreature = null; }
+  if (feedMode)    { feedMode = false; aqUI.setFeedMode(false); canvas.style.cursor = ''; }  
   stateMgr.setMode('LAB');
   document.getElementById('tlab-panel')?.classList.remove('hidden');
   document.getElementById('tlab-left-panel')?.classList.remove('hidden');
@@ -244,17 +265,30 @@ canvas.addEventListener('pointerdown', e => {
 });
 
 canvas.addEventListener('click', e => {
-  if (!stateMgr.isAquarium || !removalMode) return;
+  if (!stateMgr.isAquarium) return;
   const { x, y } = clientToCanvas(e);
-  const removed = aquarium.removeCreatureAt(x, y);
-  if (removed) syncCapacityUI();
+  if (removalMode) {
+    const removed = aquarium.removeCreatureAt(x, y);
+    if (removed) syncCapacityUI();
+  } else if (feedMode) {
+    const spawned = aquarium.foodSystem.spawnCluster(x, y);
+    if (!spawned) showToast('🍤 Food at capacity — wait for some to be eaten!', true);
+  }
 });
 
 canvas.addEventListener('pointermove', e => {
-  if (stateMgr.isAquarium && removalMode) {
-    const { x, y } = clientToCanvas(e);
-    aquarium.hoveredCreature = aquarium.getCreatureAt(x, y);
-    canvas.style.cursor = aquarium.hoveredCreature ? 'pointer' : 'crosshair';
+  if (stateMgr.isAquarium) {
+    if (removalMode) {
+      const { x, y } = clientToCanvas(e);
+      aquarium.hoveredCreature = aquarium.getCreatureAt(x, y);
+      canvas.style.cursor = aquarium.hoveredCreature ? 'pointer' : 'crosshair';
+      return;
+    }
+    if (feedMode) {
+      canvas.style.cursor = 'cell';
+      return;
+    }
+    canvas.style.cursor = '';
     return;
   }
   if (!dragging) return;
