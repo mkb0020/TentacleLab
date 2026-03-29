@@ -138,15 +138,33 @@ export class Creature {
     this.vy += (ty - this.vy) * smooth;
   }
 
-  // ── BOUNDARY AVOIDANCE ────────────────────────────────────────────────────
+    // ── BOUNDARY AVOIDANCE ────────────────────────────────────────────────────
   _steerBoundary(dt, { w, h }) {
-    const margin = this.cfg.SIZE * 0.75;
-    const force  = 7;
+    // WIDER SOFT ZONE — REPULSION STARTS MUCH FURTHER FROM WALLS
+    const margin = Math.max(this.cfg.SIZE * 2.5, 150);
+    const force  = 14;
 
-    if (this.x < margin)       this.vx += (margin - this.x)         * force * dt;
-    if (this.x > w - margin)   this.vx -= (this.x - (w - margin))   * force * dt;
-    if (this.y < margin)       this.vy += (margin - this.y)         * force * dt;
-    if (this.y > h - margin)   this.vy -= (this.y - (h - margin))   * force * dt;
+    // COMPUTE NORMALIZED PUSH COMPONENTS (0 = AT EDGE OF ZONE, 1 = AT WALL)
+    let bx = 0, by = 0;
+    if (this.x < margin)       bx =  (margin - this.x) / margin;
+    if (this.x > w - margin)   bx = -(this.x - (w - margin)) / margin;
+    if (this.y < margin)       by =  (margin - this.y) / margin;
+    if (this.y > h - margin)   by = -(this.y - (h - margin)) / margin;
+
+    // APPLY VELOCITY PUSH (QUADRATIC FALLOFF — GENTLE FAR, FIRM CLOSE)
+    if (bx !== 0) this.vx += bx * bx * Math.sign(bx) * margin * force * dt;
+    if (by !== 0) this.vy += by * by * Math.sign(by) * margin * force * dt;
+
+    // KEY: REDIRECT WANDER ANGLE AWAY FROM WALLS SO LOCOMOTION COOPERATES.
+    // WITHOUT THIS, WANDER FIGHTS EVERY BOUNDARY NUDGE (SAME PATTERN AS FOOD-SEEKING FIX).
+    const wallStrength = Math.max(Math.abs(bx), Math.abs(by));
+    if (wallStrength > 0.05) {
+      const wallAng = Math.atan2(by, bx);
+      let angDiff = wallAng - this._wAngle;
+      if (angDiff >  Math.PI) angDiff -= Math.PI * 2;
+      if (angDiff < -Math.PI) angDiff += Math.PI * 2;
+      this._wAngle += angDiff * wallStrength * 0.35;
+    }
   }
 
   // ── TIP BIAS ─────────────────────────────────────────────────────────────
