@@ -1,5 +1,5 @@
 // CREATURE.JS
-// UPDATED: 3.23.26 @ 1 AM
+// UPDATED: 3.29.26 @ 8:30 AM
 
 import { TentacleSystem } from './tentacles.js';
 import { deriveTraits }   from './traits.js';
@@ -189,6 +189,29 @@ export class Creature {
       ctx.arc(this.x, this.y, size * 0.4, 0, Math.PI * 2);
       ctx.fill();
     }
+
+  // BEHAVIOR STATE TINT — SUBTLE HUE SHIFT SO SOCIAL STATES ARE READABLE
+  if (this.behaviorState !== 'wandering') {
+    const tintMap = {
+      hungry:     'rgba(255, 200, 50, 0.2)',
+      aggressive: 'rgba(255, 60, 60, 0.2)',
+      fleeing:    'rgba(60, 200, 255, 0.2)',
+      attracted:  'rgba(180, 100, 255, 0.2)',
+    };
+    const tint = tintMap[this.behaviorState];
+    if (tint) {
+      ctx.save();
+      ctx.globalAlpha = 0.85;
+      ctx.shadowBlur  = 28;
+      ctx.shadowColor = tint;
+      ctx.fillStyle   = tint;
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, size * 0.45, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
     ctx.restore();
   }
 }
