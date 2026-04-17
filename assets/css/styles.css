@@ -1,4 +1,4 @@
-/* Updated 3.27.26 @ 12:30AM*/
+/* Updated 3.29.26 @ 7AM*/
 
 :root {
   --BosonBlue: #170032;
@@ -1220,3 +1220,38 @@
 
 #tlab-sheet-content::-webkit-scrollbar { width: 4px; }
 #tlab-sheet-content::-webkit-scrollbar-thumb { background: var(--AlphaAqua); border-radius: 2px; }
+
+/* ── FEED BUTTON — AQUARIUM HUD ──────────────────────────────────────────── */
+.aq-btn.aq-feed {
+  border-color: rgba(255, 205, 60, 0.30);
+  color: #ffd84a;
+}
+.aq-btn.aq-feed:hover {
+  background: rgba(255, 205, 60, 0.12);
+  border-color: #ffd84a;
+  color: #ffffff;
+}
+.aq-btn.aq-feed.active {
+  background: rgba(255, 200, 60, 0.18);
+  border-color: rgba(255, 220, 80, 0.70);
+  color: #ffd84a;
+  box-shadow: 0 0 12px rgba(255, 200, 60, 0.30);
+  animation: capPulse 1.4s ease-in-out infinite;
+}
+
+/* ── FEED BUTTON — MOBILE SHEET ──────────────────────────────────────────── */
+.ms-aq-feed {
+  border: 1px solid rgba(255, 205, 60, 0.30);
+  color: #ffd84a;
+}
+.ms-aq-feed:hover {
+  background: rgba(255, 205, 60, 0.10);
+  border-color: #ffd84a;
+  color: #fff;
+}
+.ms-aq-feed.active {
+  background: rgba(255, 200, 60, 0.18);
+  border-color: rgba(255, 220, 80, 0.70);
+  color: #ffd84a;
+  animation: capPulse 1.4s ease-in-out infinite;
+}

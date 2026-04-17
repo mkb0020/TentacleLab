@@ -1,10 +1,10 @@
 // UI.JS
-// UPDATED: 3.23.26 @ 3:30AM
+// UPDATED: 4.17.26 @ 2:00PM
 
 import { HEAD_CONFIGS } from './config.js'; 
 
 // ── SLIDER PARAM DEFINITIONS ─────────────────────────────────────────────────
-const PARAMS = [
+export const PARAMS = [
   // STRUCTURE
   { key: 'TENTACLE_COUNT',              label: 'Tentacle QTY',    min: 1,    max: 8,    step: 1,    rebuild: true },
   { key: 'TENTACLE_SEGMENTS',           label: 'Segments',        min: 2,    max: 14,   step: 1,    rebuild: true },
@@ -30,6 +30,14 @@ const PARAMS = [
   // VISUAL
   { key: 'SIZE',                        label: 'Head Size',       min: 30,   max: 150,  step: 1,    visual: true },
 ];
+
+export const PARAM_MAX = Object.fromEntries( // TO USE IN traits.js
+  PARAMS.map(p => [p.key, p.max])
+);
+
+export const PARAM_MIN = Object.fromEntries(
+  PARAMS.map(p => [p.key, p.min])
+);
 
 const SECTION_BEFORE = {
   TENTACLE_CURL_STRENGTH:    '── MOTION ──',

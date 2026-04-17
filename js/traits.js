@@ -1,5 +1,6 @@
 // traits.js
-// UPDATED: 3.23.26 3:30AM
+// UPDATED: 4.17.26 @ 2:00PM
+import { PARAMS, PARAM_MAX, PARAM_MIN } from './ui.js';
 
 // ── HELPERS (MODULE-LEVEL SO LENGTHPREFERENCESCORE CAN USE THEM) ─────────────
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
@@ -31,39 +32,92 @@ export function deriveTraits(cfg) {
   const segs  = cfg.TENTACLE_SEGMENTS;
 
  // ── NORMALIZE — MAP EACH RAW VALUE TO 0–1 USING ITS ACTUAL SLIDER MAX ───
-  const norm = {
-    width: clamp(cfg.TENTACLE_BASE_WIDTH      / 20,  0, 1),
-    count: clamp(cfg.TENTACLE_COUNT           / 8,   0, 1),
-    segs:  clamp(cfg.TENTACLE_SEGMENTS        / 14,  0, 1),
-    curl:  clamp(cfg.TENTACLE_CURL_STRENGTH   / 2.0, 0, 1),
-    stiff: clamp(cfg.TENTACLE_TIP_STIFFNESS   / 25,  0, 1),
-  };
+const norm = {
+  width: clamp(
+    (cfg.TENTACLE_BASE_WIDTH - PARAM_MIN.TENTACLE_BASE_WIDTH) /
+    (PARAM_MAX.TENTACLE_BASE_WIDTH - PARAM_MIN.TENTACLE_BASE_WIDTH),
+    0, 1
+  ),
+
+  count: clamp(
+    (cfg.TENTACLE_COUNT - PARAM_MIN.TENTACLE_COUNT) /
+    (PARAM_MAX.TENTACLE_COUNT - PARAM_MIN.TENTACLE_COUNT),
+    0, 1
+  ),
+
+  segs: clamp(
+    (cfg.TENTACLE_SEGMENTS - PARAM_MIN.TENTACLE_SEGMENTS) /
+    (PARAM_MAX.TENTACLE_SEGMENTS - PARAM_MIN.TENTACLE_SEGMENTS),
+    0, 1
+  ),
+
+  curl: clamp(
+    (cfg.TENTACLE_CURL_STRENGTH - PARAM_MIN.TENTACLE_CURL_STRENGTH) /
+    (PARAM_MAX.TENTACLE_CURL_STRENGTH - PARAM_MIN.TENTACLE_CURL_STRENGTH),
+    0, 1
+  ),
+
+  stiff: clamp(
+    (cfg.TENTACLE_TIP_STIFFNESS - PARAM_MIN.TENTACLE_TIP_STIFFNESS) /
+    (PARAM_MAX.TENTACLE_TIP_STIFFNESS - PARAM_MIN.TENTACLE_TIP_STIFFNESS),
+    0, 1
+  ),
+};
 
   // ── PHYSICAL -  RAW TENTACLE REACH — USED BY NATURAL SELECTION HELPERS
   const length = segs * cfg.TENTACLE_SEGMENT_LENGTH;
 
   // ── MOVEMENT - MORE TENTACLES + MORE CURL = FASTER, MORE NERVOUS SWIMMER
-  const wanderSpeed   = clamp(25 + curl * 45 + n * 4, 20, 120);
+  const wanderSpeed = clamp(
+    25 +
+    norm.curl * 45 +
+    norm.count * 30,
+    20,
+    120
+  );
 
-  const wanderErratic = clamp(0.15 + curl * 0.5, 0.1, 0.9);  // HOW OFTEN THE CREATURE SPONTANEOUSLY CHANGES DIRECTION
-
+  const wanderErratic = clamp(
+    0.15 + norm.curl * 0.5,
+    0.1,
+    0.9
+  );
 
   // ── CORE SOCIAL ───────────────────────────────────────────────────────────
  // LONG-SEGMENT CREATURES PREFER SPARSE TENTACLE COUNTS
 
-  const attraction  = clamp(1 - segs / 14, 0, 1);
+  const attraction = clamp(
+  1 - norm.segs,
+  0,
+  1
+);
 
   // CREATURES FAR FROM 4 TENTACLES ARE MORE AGGRESSIVE
-  const aggression  = clamp(Math.abs(n - 4) / 4, 0, 1);
+  const aggression = clamp(
+  Math.abs(norm.count - 0.5) * 2,
+  0,
+  1
+);
 
   // HIGHER COUNT = NEEDS MORE COMPANY
-  const sociability = clamp(n / 8, 0.1, 1.0);
+  const sociability = clamp(
+  norm.count,
+  0.1,
+  1.0
+);
 
   // THICC BODIED CREATURES HAVE FAST METABOLISM
-  const metabolism  = clamp(width / 50, 0.1, 1.0);
+  const metabolism = clamp(
+  norm.width,
+  0.1,
+  1.0
+);
 
   // PERSONAL SPACE NEEDS
-  const personalSpace = clamp(width * 7, 35, 130);
+  const personalSpace = clamp(
+  35 + norm.width * 95,
+  35,
+  130
+);
 
   // ── PERSONALITY ───────────────────────────────────────────────────────────
   const curiosity = clamp(
@@ -79,22 +133,23 @@ export function deriveTraits(cfg) {
     0, 1
   );
 
-  const dominance = clamp(
-    norm.width * 0.6 +           // THICC = PRESENCE
-    norm.count * 0.4,            // MORE LIMBS -> CONTROL
-    0, 1
-  );
+    const dominance = clamp(
+      norm.width * 0.6 +           // THICC = PRESENCE
+      norm.count * 0.4,            // MORE LIMBS -> CONTROL
+      0, 1
+    );
 
-  const playfulness = clamp(
-    norm.curl * 0.7 +            // EXPRESSIVE
-    norm.segs * 0.3,             // MORE JOINTS = MORE FLOURISH
-    0, 1
-  );
+    const playfulness = clamp(
+      norm.curl * 0.7 +            // EXPRESSIVE
+      norm.segs * 0.3,             // MORE JOINTS = MORE FLOURISH
+      0, 1
+    );
 
   const laziness = clamp(
-    (1 - clamp(wanderSpeed / 120, 0, 1)) * 0.6 +  // SLOWER = LAZIER
-    (1 - curiosity) * 0.4,                         // LOW CURIOSITY = LAZIER
-    0, 1
+    (1 - (norm.curl * 0.5 + norm.count * 0.5)) * 0.6 +
+    (1 - curiosity) * 0.4,
+    0,
+    1
   );
 
   // ── SOCIAL ────────────────────────────────────────────────────────────────

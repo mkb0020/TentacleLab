@@ -1,5 +1,6 @@
 // CREATURE.JS
-// UPDATED: 3.29.26 @ 8:30 AM
+// UPDATED: 4.17.26 @ 2:00PM
+
 
 import { TentacleSystem } from './tentacles.js';
 import { deriveTraits }   from './traits.js';
@@ -41,6 +42,9 @@ export class Creature {
     this.hunger = 0.3 + Math.random() * 0.2;  // START SLIGHTLY HUNGRY
     this.health = 1.0;
 
+    // SECONDS UNTIL THIS CREATURE CAN BRAWL AGAIN — SET BY AQUARIUM ON SKIRMISH RESOLVE
+    this.skirmishCooldown = 0;
+
     // WHAT CREATURE IS CURRENTLY "DOING" - READABLE BY HUD / DEBUG OVERLAY
     // VALUES: 'WANDERING' | 'ATTRACTED' | 'FLEEING' | 'AGGRESSIVE' | 'HUNGRY'
     this.behaviorState = 'wandering';
@@ -74,6 +78,7 @@ export class Creature {
   update(dt, time, bounds) {
     if (!this.alive) return;
     this.age += dt;
+    if (this.skirmishCooldown > 0) this.skirmishCooldown -= dt;
 
     this._tickHunger(dt);
 
@@ -208,13 +213,13 @@ export class Creature {
       ctx.fill();
     }
 
-  // BEHAVIOR STATE TINT — SUBTLE HUE SHIFT SO SOCIAL STATES ARE READABLE
+  // BEHAVIOR STATE TINT — SUBTLE HUE SHIFT SO SOCIAL STATES ARE READABLE - FOR NOW, COLORS ARE BRIGHT SO I CAN SEE WHAT THEY'RE DOING WHILE DEVELOPING
   if (this.behaviorState !== 'wandering') {
     const tintMap = {
-      hungry:     'rgba(255, 200, 50, 0.2)',
-      aggressive: 'rgba(255, 60, 60, 0.2)',
-      fleeing:    'rgba(60, 200, 255, 0.2)',
-      attracted:  'rgba(180, 100, 255, 0.2)',
+      hungry:     'rgba(255, 200, 50, 0.99)',
+      aggressive: 'rgba(255, 60, 60, 0.99)',
+      fleeing:    'rgba(60, 200, 255, 0.99)',
+      attracted:  'rgba(180, 100, 255, 0.99)',
     };
     const tint = tintMap[this.behaviorState];
     if (tint) {

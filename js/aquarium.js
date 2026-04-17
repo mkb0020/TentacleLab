@@ -19,7 +19,115 @@ const MAX_STEER       = 2.2;
 // HOW STRONGLY SOCIAL FORCES COMPETE WITH THE WANDER DRIVE
 const SOCIAL_WEIGHT   = 0.65;
 
+// ── SKIRMISH CONSTANTS ────────────────────────────────────────────────────────
+const SKIRMISH_COOLDOWN_MIN = 4.0;   // SECONDS BEFORE EITHER FIGHTER CAN BRAWL AGAIN
+const SKIRMISH_COOLDOWN_RNG = 3.0;   // EXTRA RANDOM SECONDS ON TOP
+const SKIRMISH_HEALTH_HIT   = 0.06;  // HEALTH LOST BY THE LOSER
+const SKIRMISH_STRIKE_RANGE = 0.75;  // MULTIPLIER ON (sizeA + sizeB) FOR TRIGGER DISTANCE
 
+
+// ── SKIRMISH ──────────────────────────────────────────────────────────────────
+// SELF-CONTAINED VISUAL EFFECT: INK CLOUD + BUBBLE BURST AT FIGHT MIDPOINT.
+// NO PARTICLES — JUST CHEAP ELLIPSES AND ARCS, SAFE FOR A CROWDED TANK.
+class Skirmish {
+  /**
+   * @param {number} x        MIDPOINT X BETWEEN THE TWO FIGHTERS
+   * @param {number} y        MIDPOINT Y
+   * @param {number} size     AVERAGE OF THE TWO CREATURES' SIZE VALUES
+   */
+  constructor(x, y, size) {
+    this.x   = x;
+    this.y   = y;
+    this.t   = 0;
+    this.dur = 0.85 + Math.random() * 0.45;
+
+    // 3–4 INK BLOBS — EACH SLIGHTLY OFFSET, ROTATED, AND SIZED DIFFERENTLY
+    this._blobs = Array.from({ length: 3 + Math.floor(Math.random() * 2) }, () => ({
+      ox:   (Math.random() - 0.5) * size * 0.38,
+      oy:   (Math.random() - 0.5) * size * 0.38,
+      rx:   size * (0.32 + Math.random() * 0.22),
+      ry:   size * (0.20 + Math.random() * 0.16),
+      rot:  Math.random() * Math.PI,
+      dRot: (Math.random() - 0.5) * 1.8,   // SLOW SPIN AS INK DISPERSES
+    }));
+
+    // BURST BUBBLES — SMALL, QUICK, PURELY ctx.arc STROKES
+    this._bubbles = Array.from({ length: 5 + Math.floor(Math.random() * 5) }, () => ({
+      x:    x + (Math.random() - 0.5) * size * 0.55,
+      y:    y + (Math.random() - 0.5) * size * 0.55,
+      vx:   (Math.random() - 0.5) * 85,
+      vy:   -(30 + Math.random() * 60),
+      r:    1.4 + Math.random() * 2.8,
+      life: 0.35 + Math.random() * 0.45,
+      age:  0,
+    }));
+  }
+
+  update(dt) {
+    this.t += dt;
+    for (const b of this._bubbles) {
+      b.age += dt;
+      b.x   += b.vx * dt;
+      b.y   += b.vy * dt;
+      b.vy  += 28 * dt;   // GRAVITY SLOWS THE INITIAL UPWARD BURST
+      b.vx  *= 0.97;
+    }
+  }
+
+  get done() { return this.t >= this.dur; }
+
+  draw(ctx) {
+    const p = this.t / this.dur;  // 0 → 1
+
+    // INK: FAST EXPAND (first 25%), SLOW FADE (rest)
+    const inkScale = 0.25 + p * 0.75;
+    const inkAlpha = p < 0.25
+      ? p / 0.25                              // FAST BLOOM IN
+      : Math.max(0, 1 - (p - 0.25) / 0.75);  // SLOW FADE OUT
+
+    for (const b of this._blobs) {
+      ctx.save();
+      ctx.translate(this.x + b.ox, this.y + b.oy);
+      ctx.rotate(b.rot + b.dRot * this.t);
+
+      // DARK INK BODY
+      ctx.globalAlpha = inkAlpha * 0.68;
+      ctx.shadowBlur  = 20;
+      ctx.shadowColor = 'rgba(30, 0, 55, 0.95)';
+      ctx.fillStyle   = 'rgba(8, 0, 20, 0.88)';
+      ctx.beginPath();
+      ctx.ellipse(0, 0, b.rx * inkScale, b.ry * inkScale, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // PURPLE SHIMMER CORE — READS AS BIOLUMINESCENT INK
+      ctx.globalAlpha = inkAlpha * 0.30;
+      ctx.shadowBlur  = 12;
+      ctx.shadowColor = 'rgba(140, 30, 220, 0.8)';
+      ctx.fillStyle   = 'rgba(110, 20, 180, 0.55)';
+      ctx.beginPath();
+      ctx.ellipse(0, 0, b.rx * inkScale * 0.55, b.ry * inkScale * 0.55, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    // BURST BUBBLES
+    for (const bub of this._bubbles) {
+      if (bub.age >= bub.life) continue;
+      const ba = Math.max(0, 1 - bub.age / bub.life);
+      ctx.save();
+      ctx.globalAlpha = ba * 0.72;
+      ctx.strokeStyle = 'rgba(0, 230, 255, 0.85)';
+      ctx.lineWidth   = Math.max(0.5, bub.r * 0.22);
+      ctx.shadowBlur  = 6;
+      ctx.shadowColor = 'rgba(0, 200, 255, 0.5)';
+      ctx.beginPath();
+      ctx.arc(bub.x, bub.y, bub.r, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+}
 
 
 export class Aquarium {
@@ -33,8 +141,9 @@ export class Aquarium {
     this.creatures = [];
     this.env       = new Environment(w, h);
     this.hoveredCreature = null;
-    this.foodSystem = new FoodSystem();  
-    this._onEat     = null; 
+    this.foodSystem  = new FoodSystem();  
+    this._skirmishes = [];   // ACTIVE INK-CLOUD FIGHT EFFECTS
+    this._onEat      = null; 
   }
 
   // ── LIFECYCLE ────────────────────────────────────────────────────────────
@@ -137,6 +246,10 @@ getCreatureAt(x, y) {
 
     this._resolveCollisions(dt);
 
+    // TICK AND PRUNE FINISHED INK CLOUDS
+    for (const s of this._skirmishes) s.update(dt);
+    this._skirmishes = this._skirmishes.filter(s => !s.done);
+
     // PRUNE DEAD CREATURES
     this.creatures = this.creatures.filter(c => c.alive);
   }
@@ -183,6 +296,20 @@ getCreatureAt(x, y) {
 
         // PROXIMITY falloff: 1.0 WHEN TOUCHING, 0.0 at SENSE_RADIUS
         const proximity = 1 - dist / SENSE_RADIUS;
+
+        // ── SKIRMISH CHECK ────────────────────────────────────────────────
+        // CHECK ONCE PER ORDERED PAIR (i < j) SO WE NEVER DOUBLE-TRIGGER.
+        // BOTH MUST BE AGGRESSIVE, CLOSE ENOUGH TO STRIKE, AND OFF COOLDOWN.
+        if (i < j
+            && a.skirmishCooldown <= 0
+            && b.skirmishCooldown <= 0
+            && a.effectiveAggression > 0.5
+            && b.effectiveAggression > 0.4) {
+          const strikeRange = (a.cfg.SIZE + b.cfg.SIZE) * SKIRMISH_STRIKE_RANGE;
+          if (dist < strikeRange) {
+            this._triggerSkirmish(a, b, nx, ny);
+          }
+        }
 
         // ── 1. PERSONAL SPACE ───────────────────────────────────────────
         // ALWAYS FLEE IF B IS INSIDE A'S PERSONAL BUBBLE, REGARDLESS OF
@@ -294,6 +421,61 @@ if (a.hunger > 0.3) {
     }
   }
 
+  // ── SKIRMISH RESOLUTION ───────────────────────────────────────────────────
+  /**
+   * CALLED WHEN TWO AGGRESSIVE CREATURES ENTER STRIKE RANGE.
+   * SCORES EACH FIGHTER, DECLARES A WINNER, APPLIES OUTCOMES, SPAWNS INK CLOUD.
+   *
+   * COMBAT SCORE WEIGHTS:
+   *   • LOW HUNGER    — CAN'T WIN ON AN EMPTY STOMACH (35%)
+   *   • DOMINANCE     — PHYSICAL PRESENCE (35%)
+   *   • BOLDNESS      — WILLINGNESS TO COMMIT (20%)
+   *   • TERRITORIAL   — HOME-TURF DRIVE (10%)
+   */
+  _triggerSkirmish(a, b, nx, ny) {
+    const score = c =>
+      (1 - c.hunger)              * 0.35 +
+      c.traits.dominance          * 0.35 +
+      c.traits.boldness           * 0.20 +
+      c.traits.territorialDrive   * 0.10;
+
+    const sa = score(a);
+    const sb = score(b);
+    const [winner, loser, wnx, wny] = sa >= sb
+      ? [a, b,  nx,  ny]   // A wins — knock A back away from B (recoil)
+      : [b, a, -nx, -ny];  // B wins
+
+    const cooldown = SKIRMISH_COOLDOWN_MIN + Math.random() * SKIRMISH_COOLDOWN_RNG;
+    winner.skirmishCooldown = cooldown;
+    loser.skirmishCooldown  = cooldown;
+
+    // WINNER: SMALL RECOIL + SLIGHT HUNGER REWARD (ADRENALINE)
+    const winKick = winner.traits.wanderSpeed * 1.1;
+    winner.vx -= wnx * winKick;
+    winner.vy -= wny * winKick;
+    winner.hunger = Math.max(0, winner.hunger - 0.08);
+
+    // LOSER: HEALTH DAMAGE + STRONG KNOCKBACK + FLEE ANGLE
+    const loseKick = loser.traits.wanderSpeed * 2.2;
+    loser.vx  += wnx * loseKick;
+    loser.vy  += wny * loseKick;
+    loser.health = Math.max(0, loser.health - SKIRMISH_HEALTH_HIT);
+    if (loser.health <= 0) {
+      loser.health = 0;
+      loser.alive  = false;
+      loser._sys.triggerDeath();
+    }
+    // FLIP LOSER'S WANDER ANGLE AWAY FROM THE WINNER SO IT ACTUALLY FLEES
+    loser._wAngle = Math.atan2(wny, wnx) + Math.PI + (Math.random() - 0.5) * 0.6;
+    loser.behaviorState = 'fleeing';
+
+    // SPAWN INK CLOUD AT MIDPOINT
+    const mx   = (a.x + b.x) * 0.5;
+    const my   = (a.y + b.y) * 0.5;
+    const size = (a.cfg.SIZE + b.cfg.SIZE) * 0.5;
+    this._skirmishes.push(new Skirmish(mx, my, size));
+  }
+
   // ── SOFT CREATURE COLLISIONS ──────────────────────────────────────────────
   /**
    * PHYSICAL BODY SEPARATION — UNCHANGED FROM ORIGINAL.
@@ -350,6 +532,8 @@ if (a.hunger > 0.3) {
       c.draw(ctx);
     }
     this.foodSystem.draw(ctx);
+    // INK CLOUDS — ON TOP OF CREATURES AND FOOD, BELOW FLOATING BUBBLES
+    for (const s of this._skirmishes) s.draw(ctx);
     // ── REMOVAL MODE HOVER HIGHLIGHT ─────────────────────────────────────
     if (removalMode && this.hoveredCreature?.alive) {
       const c = this.hoveredCreature;
